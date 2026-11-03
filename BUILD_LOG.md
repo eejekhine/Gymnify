@@ -6,9 +6,14 @@ Newest first. Each entry: what changed, why, and what is next.
 - **M1 Offline + first run** (service worker, welcome card, honest README)
 - **M2 Accounts + sync (built, needs a tester round)** (optional sign-in; per-user tables with row-level security, shared with Klander's Supabase project; the app stays fully usable without an account)
 - **M3 Tester round** (share with testers, collect feedback directly, fix the top issues)
-- **Later:** exercise demos, unit toggle (kg/lb), charts polish, import from other apps
+- **M4 Units, export, privacy (built)**
+- **Later:** exercise demos, supersets, deload weeks, light theme, friends, charts polish
 
 ## 2026-11-03
+- M4: kg/lb switch (Settings > Training). Data is always stored in kg and converted for display and entry, so switching is lossless. Covers set inputs, progression hints (5 lb steps in lb), plate calculator (45 lb bar and lb plates), charts, PRs, body weight and goal weight.
+- M4: Export CSV (Settings > Data): every completed set with date, workout, exercise, type (warm-up or working), weight, reps, RPE and PR flag.
+- M4: Privacy and data page (Settings > About) saying what is stored on the device, what is synced with an account, and what is never done.
+- Correction: plate calculator, progression hints, estimated 1RM, warm-up sets and weekly muscle sets already existed; the roadmap page listed them as ideas by mistake.
 - M3: first-run setup wizard (goal, experience, days and time, where you train, theme, optional account, then build a plan or start blank). Existing users with data skip it. Settings > Setup runs it again.
 - M3: guided routine builder (Workouts > Build for me). Builds a split from goal, experience, days, time and your equipment, shows a preview, can shuffle exercises, and sets the weekly plan. Replaces only routines it made earlier.
 - M3: themes ported from the Training Hub (Gymnify, Midnight, Nebula, Deep Ocean, Ember, Classic Gold, Mono) plus eight accent colours, in Settings > Appearance and in setup.
