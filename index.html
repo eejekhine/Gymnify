@@ -274,7 +274,7 @@ function kitAll(){var k={};EQUIP.forEach(function(e){k[e[0]]=true});return k}
 function defaults(){
   var home=kitAll();Object.keys(home).forEach(function(k){home[k]=(k==='dumbbell'||k==='band'||k==='box')});
   return {v:1,updated:0,mode:'gym',seeded:true,
-    settings:{rest:90,rpe:false,weekGoal:3,goalKg:'',kitGym:kitAll(),kitHome:home},
+    settings:{rest:90,rpe:false,weekGoal:3,goalKg:'',theme:'gymnify',accent:'',setupDone:false,kitGym:kitAll(),kitHome:home},
     routines:[],customEx:[],sessions:[],active:null,plan:{},weights:[],measures:[],lastDone:{}};
 }
 function load(){
@@ -292,6 +292,7 @@ function load(){
 }
 function registerCustom(list){(list||[]).forEach(function(c){var o={id:c.id,name:c.name,muscle:c.muscle,eq:c.eq||[],type:c.type||'w',alts:c.alts||[],custom:true};EX[o.id]=o;if(EXLIST.indexOf(o)<0&&!EXLIST.some(function(x){return x.id===o.id}))EXLIST.push(o)})}
 var S=load();
+if(!S.settings.setupDone&&((S.sessions&&S.sessions.length)||(S.routines&&S.routines.length)||(S.weights&&S.weights.length)))S.settings.setupDone=true;
 var saveT=null;
 function save(){
   S.updated=Date.now();
@@ -494,6 +495,132 @@ function acctCard(){
   return '<div class="card"><h3>Account (optional)</h3><p class="sm dim" style="margin:6px 0 10px">Sign in to sync your workouts across devices. You can use Gymnify without an account, and your data stays on this device.</p><div style="display:grid;gap:8px"><input id="acct-email" type="email" autocomplete="username" inputmode="email" autocapitalize="off" placeholder="Email"><input id="acct-pass" type="password" autocomplete="current-password" placeholder="Password (8+ characters)"></div><div class="row" style="margin-top:10px"><button class="btn sm" data-act="signin">Sign in</button><button class="btn ghost sm" data-act="signup">Create account</button></div><div class="sm dim" id="acct-msg" style="margin-top:8px"></div></div>';
 }
 
+/* ---------- themes ---------- */
+var THEMES={
+  gymnify:{n:'Gymnify',note:'Violet on navy',bg:'#0d0f1a',s:'#151829',s2:'#1d2138',b:'#2a2f4b',t:'#eef0fb',d:'#a4aac8',f:'#737aa5',a:'#8f84ff',a2:'#5fd0ff',g:'#5be3a1',c:'#ff8a9a'},
+  midnight:{n:'Midnight',note:'Blue-violet on near-black',bg:'#07080f',s:'#0e1021',s2:'#161a33',b:'#202549',t:'#f5f6ff',d:'#9097c4',f:'#6b72a3',a:'#8b93ff',a2:'#b9a6ff',g:'#4be3a1',c:'#ff7087'},
+  nebula:{n:'Nebula',note:'Deep purple and black',bg:'#09050f',s:'#130a22',s2:'#1d1233',b:'#2b1a4e',t:'#f9f5ff',d:'#a592cc',f:'#7c69a8',a:'#b57bff',a2:'#e0a8ff',g:'#4be3a1',c:'#ff7087'},
+  ocean:{n:'Deep Ocean',note:'Cold blue and black',bg:'#050a13',s:'#0a1625',s2:'#10223b',b:'#17304f',t:'#f2f8ff',d:'#85a3c8',f:'#5f7fa8',a:'#4aa8ff',a2:'#85d3ff',g:'#4be3a1',c:'#ff7087'},
+  ember:{n:'Ember',note:'Warm copper in the dark',bg:'#0f0d0b',s:'#171310',s2:'#211b15',b:'#2d251d',t:'#f7f0e7',d:'#a09484',f:'#7a6f61',a:'#e09a55',a2:'#efb37c',g:'#68b77c',c:'#e5806f'},
+  gold:{n:'Classic Gold',note:'Black and gold',bg:'#0c0c0c',s:'#141414',s2:'#1c1c1c',b:'#222222',t:'#f0f0f0',d:'#8a8a8a',f:'#666666',a:'#e2b96b',a2:'#f0c97a',g:'#52d98a',c:'#e05252'},
+  mono:{n:'Mono',note:'Pure black and white',bg:'#000000',s:'#0c0c0c',s2:'#161616',b:'#232323',t:'#ffffff',d:'#9a9a9a',f:'#737373',a:'#ffffff',a2:'#d8d8d8',g:'#52d98a',c:'#ff6b6b'}
+};
+var ACCENTS=['#8f84ff','#4aa8ff','#4be3a1','#e2b96b','#ff7087','#e09a55','#b57bff','#ffffff'];
+function lum(h){h=h.replace('#','');var n=parseInt(h,16),c=[(n>>16)&255,(n>>8)&255,n&255].map(function(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)});return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]}
+function applyTheme(){
+  var T=THEMES[S.settings.theme]||THEMES.gymnify,acc=S.settings.accent||T.a,st=document.documentElement.style;
+  [['--bg',T.bg],['--surface',T.s],['--surface2',T.s2],['--border',T.b],['--text',T.t],['--dim',T.d],['--faint',T.f],['--accent',acc],['--accent2',T.a2],['--good',T.g],['--crit',T.c],['--accent-ink',lum(acc)>0.45?'#0b0d16':'#ffffff']].forEach(function(p){st.setProperty(p[0],p[1])});
+  var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',T.bg);
+}
+function themeTiles(){
+  var cur=S.settings.theme||'gymnify';
+  var h='<div class="grid2" style="margin-top:10px">'+Object.keys(THEMES).map(function(k){var T=THEMES[k];
+    return '<button class="card'+(cur===k?' hl':'')+'" style="margin:0;text-align:left;padding:10px" data-act="theme" data-t="'+k+'"><div style="display:flex;gap:4px;margin-bottom:8px"><i style="width:22px;height:22px;border-radius:6px;background:'+T.bg+';border:1px solid '+T.b+'"></i><i style="width:22px;height:22px;border-radius:6px;background:'+T.s2+'"></i><i style="width:22px;height:22px;border-radius:6px;background:'+T.a+'"></i></div><b class="sm">'+esc(T.n)+'</b><div class="xs faint">'+esc(T.note)+'</div></button>'}).join('')+'</div>';
+  h+='<div class="lab" style="margin-top:14px">Accent colour</div><div class="row wrap" style="margin-top:8px"><button class="chip'+(!S.settings.accent?' on':'')+'" data-act="accent" data-c="">Theme default</button>'+ACCENTS.map(function(c){return '<button aria-label="Accent '+c+'" data-act="accent" data-c="'+c+'" style="width:30px;height:30px;border-radius:50%;background:'+c+';border:2px solid '+(S.settings.accent===c?'var(--text)':'var(--border)')+'"></button>'}).join('')+'</div>';
+  return h;
+}
+
+/* ---------- routine builder ---------- */
+var GOALS=[['strength','Get stronger','Heavier weights, fewer reps, longer rests'],['muscle','Build muscle','Moderate weights, 8 to 12 reps'],['fatloss','Lose fat and stay fit','Shorter rests and a cardio finisher'],['general','General fitness','A balanced mix, easy to stick to']];
+var EXPS=[['beginner','Beginner','New, or coming back after a break'],['intermediate','Intermediate','Training regularly for 1 to 3 years'],['advanced','Advanced','3 or more years of consistent training']];
+var T_FB_A=['Quads','Chest','Back','Shoulders','Hamstrings','Core','Biceps'],T_FB_B=['Hamstrings','Back','Chest','Quads','Shoulders','Glutes','Triceps'],T_FB_C=['Quads','Back','Chest','Glutes','Shoulders','Core','Biceps'];
+var T_PUSH=['Chest','Shoulders','Chest','Triceps','Shoulders','Triceps'],T_PULL=['Back','Back','Shoulders','Biceps','Biceps','Core'],T_LEGS=['Quads','Hamstrings','Glutes','Quads','Calves','Core'];
+var T_UP=['Chest','Back','Shoulders','Back','Biceps','Triceps'],T_LOW=['Quads','Hamstrings','Glutes','Calves','Core','Quads'];
+var WEEKDAYS={2:[1,4],3:[1,3,5],4:[1,2,4,5],5:[1,2,3,4,5],6:[1,2,3,4,5,6]};
+var HARD=['deadlift','front_squat','dips','hang_leg','pullup','incline_bb','nordic','bulgarian','stepup'],NEVER=['wpullup','wall_lat','max_jump'];
+function buildDefaults(){var p=S.settings.profile||{};return {goal:p.goal||'muscle',exp:p.exp||'beginner',days:p.days||3,mins:p.mins||60,where:p.where||'gym',shuffle:0}}
+function genPlan(o){
+  var kitv=kit(o.where),days=+o.days,n={30:4,45:5,60:6,75:7}[+o.mins]||6;
+  var plan;
+  if(days===2)plan=[['Full body A',T_FB_A],['Full body B',T_FB_B]];
+  else if(days===3)plan=(o.exp==='beginner'||o.goal==='general'||o.goal==='fatloss')?[['Full body A',T_FB_A],['Full body B',T_FB_B],['Full body C',T_FB_C]]:[['Push',T_PUSH],['Pull',T_PULL],['Legs',T_LEGS]];
+  else if(days===4)plan=[['Upper A',T_UP],['Lower A',T_LOW],['Upper B',T_UP],['Lower B',T_LOW]];
+  else if(days===5)plan=[['Push',T_PUSH],['Pull',T_PULL],['Legs',T_LEGS],['Upper',T_UP],['Lower',T_LOW]];
+  else plan=[['Push A',T_PUSH],['Pull A',T_PULL],['Legs A',T_LEGS],['Push B',T_PUSH],['Pull B',T_PULL],['Legs B',T_LEGS]];
+  var used={},sets0={beginner:3,intermediate:4,advanced:5}[o.exp]||3,setsA={beginner:3,intermediate:3,advanced:4}[o.exp]||3;
+  var repsMain={strength:'5',muscle:'8',fatloss:'12',general:'10'}[o.goal],repsAcc={strength:'8',muscle:'12',fatloss:'15',general:'12'}[o.goal];
+  var restMain={strength:150,muscle:120,fatloss:60,general:90}[o.goal],restAcc={strength:90,muscle:75,fatloss:45,general:60}[o.goal];
+  if(o.goal==='strength'&&o.exp==='beginner')sets0=3;
+  return plan.map(function(d,di){
+    var items=[];
+    d[1].slice(0,n).forEach(function(mus,si){
+      var avail=EXLIST.filter(function(e){return e.muscle===mus&&!e.custom&&NEVER.indexOf(e.id)<0&&e.eq.every(function(q){return kitv[q]})});
+      var easy=o.exp==='beginner'?avail.filter(function(e){return HARD.indexOf(e.id)<0}):avail;
+      if(easy.length)avail=easy;
+      var fresh=avail.filter(function(e){return !used[e.id]});
+      var pool=fresh.length?fresh:avail;if(!pool.length)return;
+      var e=pool[(o.shuffle||0)%pool.length];used[e.id]=1;
+      var main=si===0;
+      if(e.type==='t')items.push({ex:e.id,sets:3,reps:'30',rest:45,note:''});
+      else items.push({ex:e.id,sets:main?sets0:setsA,reps:main?repsMain:repsAcc,rest:main?restMain:restAcc,note:''});
+    });
+    if(o.goal==='fatloss'){var c=['treadmill','bike','rower','jog'].filter(function(id){return EX[id]&&EX[id].eq.every(function(q){return kitv[q]})})[0];if(c)items.push({ex:c,sets:1,reps:'600',rest:0,note:'Steady pace'})}
+    return {name:d[0],items:items};
+  });
+}
+function saveBuilt(o){
+  var plan=genPlan(o);
+  S.routines=S.routines.filter(function(r){return r.tag!=='Built for you'});
+  var ids=[];
+  plan.forEach(function(d){var r={id:uid(),name:d.name,tag:'Built for you',items:d.items};S.routines.push(r);ids.push(r.id)});
+  S.plan={};(WEEKDAYS[+o.days]||[]).forEach(function(wd,i){if(ids[i])S.plan[wd]=ids[i]});
+  S.settings.weekGoal=+o.days;S.settings.profile=Object.assign(S.settings.profile||{},{goal:o.goal,exp:o.exp,days:+o.days,mins:+o.mins,where:o.where});
+  save();return plan.length;
+}
+function optChips(k,list,cur,act){return '<div class="row wrap" style="margin-top:8px">'+list.map(function(x){return '<button class="chip'+(String(cur)===String(x[0])?' on':'')+'" style="padding:7px 14px;font-size:13px" data-act="'+act+'" data-k="'+k+'" data-v="'+x[0]+'">'+esc(x[1])+'</button>'}).join('')+'</div>'}
+function planPreviewHtml(o){
+  var plan=genPlan(o),wd=WEEKDAYS[+o.days]||[];
+  return plan.map(function(d,i){return '<div class="card"><div class="row"><b class="sp">'+esc(d.name)+'</b><span class="chip">'+(wd[i]!==undefined?DOW[wd[i]]:'')+'</span></div>'+d.items.map(function(it){var e=EX[it.ex];return '<div class="sm" style="padding:3px 0;display:flex;justify-content:space-between;gap:10px"><span>'+esc(e?e.name:it.ex)+'</span><span class="dim mono">'+(e&&e.type==='t'?(it.sets>1?it.sets+' x ':'')+it.reps+'s':it.sets+' x '+it.reps)+'</span></div>'}).join('')+'</div>'}).join('');
+}
+function vBuilder(){
+  var o=ui.build||(ui.build=buildDefaults());
+  var h=head('Routine builder',{back:true});
+  h+='<p class="dim sm" style="margin:0 0 4px">Answer five quick questions and Gymnify builds your routines and sets your week. You can edit everything afterwards.</p>';
+  h+='<div class="card"><div class="lab">Goal</div>'+optChips('goal',GOALS.map(function(g){return [g[0],g[1]]}),o.goal,'bset');
+  h+='<div class="lab" style="margin-top:14px">Experience</div>'+optChips('exp',EXPS.map(function(g){return [g[0],g[1]]}),o.exp,'bset');
+  h+='<div class="lab" style="margin-top:14px">Days per week</div>'+optChips('days',[[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6']],o.days,'bset');
+  h+='<div class="lab" style="margin-top:14px">Time per session</div>'+optChips('mins',[[30,'30 min'],[45,'45 min'],[60,'60 min'],[75,'75 min']],o.mins,'bset');
+  h+='<div class="lab" style="margin-top:14px">Where you train</div>'+optChips('where',[['gym','Gym'],['home','Home']],o.where,'bset');
+  h+='<p class="xs faint" style="margin:10px 0 0">Uses the equipment ticked for '+(o.where==='home'?'home':'the gym')+' in Settings.</p></div>';
+  h+='<div class="lab" style="margin-top:6px">Your plan</div>'+planPreviewHtml(o);
+  h+='<div class="row" style="margin:12px 0"><button class="btn sp" data-act="bsave">Save and set my week</button><button class="btn ghost" data-act="bshuffle">Shuffle</button></div><p class="xs faint">Saving replaces any routines previously made by the builder. Your own routines are untouched.</p>';
+  return h;
+}
+
+/* ---------- first-run setup ---------- */
+var SU_STEPS=['welcome','goal','exp','days','where','theme','account','done'];
+function suProfile(){S.settings.profile=Object.assign({goal:'muscle',exp:'beginner',days:3,mins:60,where:'gym'},S.settings.profile||{});return S.settings.profile}
+function optCards(k,list,cur){return list.map(function(x){return '<button class="card'+(cur===x[0]?' hl':'')+'" style="width:100%;text-align:left;margin:8px 0" data-act="su" data-k="'+k+'" data-v="'+x[0]+'"><b>'+esc(x[1])+'</b><div class="sm dim">'+esc(x[2])+'</div></button>'}).join('')}
+function vSetup(){
+  var st=ui.setup||(ui.setup={step:0}),step=SU_STEPS[st.step],p=suProfile(),h='';
+  h+='<div style="padding:18px 0 4px"><div class="row" style="gap:6px">'+SU_STEPS.map(function(x,i){return '<i style="flex:1;height:4px;border-radius:4px;background:'+(i<=st.step?'var(--accent)':'var(--border)')+'"></i>'}).join('')+'</div></div>';
+  if(step==='welcome'){
+    h+='<div style="padding:34px 0 10px"><h1>Welcome to Gymnify</h1><p class="dim" style="margin:10px 0 0">A free workout tracker that is quick to use in the gym. Let us set it up for you. It takes about a minute.</p></div>';
+    h+='<div class="card"><div class="sm">Log sets and reps with a built-in rest timer</div><div class="sm" style="margin-top:6px">Get a routine built for your goal, or make your own</div><div class="sm" style="margin-top:6px">Your data stays on your device, and an account is optional</div></div>';
+    h+='<div class="row" style="margin:16px 0"><button class="btn sp" data-act="sunext">Let us set up</button></div><button class="btn ghost sm" data-act="sufinish" data-build="0">Skip, start blank</button>';
+  }else{
+    var title={goal:'What is your main goal?',exp:'How much training experience do you have?',days:'How often do you want to train?',where:'Where do you train?',theme:'Pick your look',account:'Save your workouts (optional)',done:'You are all set'}[step];
+    h+='<h2 style="margin:22px 0 4px">'+title+'</h2>';
+    if(step==='goal')h+=optCards('goal',GOALS,p.goal);
+    if(step==='exp')h+=optCards('exp',EXPS,p.exp);
+    if(step==='days'){h+='<div class="card"><div class="lab">Days per week</div>'+optChips('days',[[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6']],p.days,'su')+'<div class="lab" style="margin-top:14px">Time per session</div>'+optChips('mins',[[30,'30 min'],[45,'45 min'],[60,'60 min'],[75,'75 min']],p.mins,'su')+'</div>'}
+    if(step==='where'){
+      h+=optCards('where',[['gym','Gym','Full equipment'],['home','Home','Pick what you have']],p.where);
+      if(p.where==='home')h+='<div class="card"><div class="lab">Your home equipment</div><div class="row wrap" style="margin-top:8px">'+EQUIP.map(function(e){return '<button class="chip'+(S.settings.kitHome[e[0]]?' on':'')+'" style="padding:7px 14px;font-size:13px" data-act="kit" data-w="Home" data-q="'+e[0]+'">'+esc(e[1])+'</button>'}).join('')+'</div><p class="xs faint" style="margin:8px 0 0">Bodyweight exercises are always included.</p></div>';
+    }
+    if(step==='theme')h+='<div class="card">'+themeTiles()+'</div>';
+    if(step==='account')h+='<p class="dim sm" style="margin:0">An account syncs your workouts between your devices. You can skip this and add one later in Settings.</p>'+acctCard();
+    if(step==='done'){
+      var g=GOALS.filter(function(x){return x[0]===p.goal})[0],e2=EXPS.filter(function(x){return x[0]===p.exp})[0];
+      h+='<div class="card"><div class="sm"><b>Goal:</b> '+esc(g[1])+'</div><div class="sm" style="margin-top:4px"><b>Experience:</b> '+esc(e2[1])+'</div><div class="sm" style="margin-top:4px"><b>Plan:</b> '+p.days+' days a week, '+p.mins+' minutes, at '+(p.where==='home'?'home':'the gym')+'</div></div>';
+      h+='<div class="row" style="margin:16px 0"><button class="btn sp" data-act="sufinish" data-build="1">Build my plan</button></div><button class="btn ghost sm" data-act="sufinish" data-build="0">Start with a blank app</button>';
+    }
+    if(step!=='done')h+='<div class="row" style="margin:18px 0"><button class="btn ghost" data-act="suback">Back</button><button class="btn sp" data-act="sunext">'+(step==='account'?'Skip for now':'Next')+'</button></div>';
+    else h+='<div style="margin-top:12px"><button class="btn ghost sm" data-act="suback">Back</button></div>';
+  }
+  return h;
+}
+
 /* ---------- photos (IndexedDB, this device only) ---------- */
 var idb=null;
 function openDB(){
@@ -579,11 +706,13 @@ function modeSeg(){return '<div class="seg '+(S.mode==='home'?'home':'')+'" role
 
 /* ---------- shell ---------- */
 function render(){
+  if(!S.settings.setupDone){$('#app').innerHTML=vSetup();$('#nav').innerHTML='';window.scrollTo(0,0);return}
   var y=window.scrollY,h='';
   var sub=nav.sub,tab=nav.tab;
   if(sub&&sub.k==='workout'&&S.active)h=vWorkout();
   else if(sub&&sub.k==='routine')h=vRoutineEdit(sub.id);
   else if(sub&&sub.k==='settings')h=vSettings();
+  else if(sub&&sub.k==='builder')h=vBuilder();
   else if(sub&&sub.k==='import')h=vImport();
   else h=vTab();
   var banner='';
@@ -624,17 +753,16 @@ function streakWeeks(){
 }
 function routineCard(r,showSwap){
   var pv=previewSwaps(r,S.mode),last=S.lastDone[r.id];
-  return '<div class="card"><div class="row"><div class="sp" style="min-width:0"><b>'+esc(r.name)+'</b><div class="sm dim">'+r.items.length+' exercises'+(last?' · last '+nice(last):'')+'</div>'+(showSwap&&pv.n?'<div class="swapnote">'+pv.n+' swapped for '+S.mode+' kit</div>':'')+'</div><button class="btn" data-act="start" data-r="'+r.id+'">Start</button></div></div>';
+  return '<div class="card"><div class="row"><div class="sp" style="min-width:0;cursor:pointer" data-act="rview" data-r="'+r.id+'"><b>'+esc(r.name)+'</b><div class="sm dim">'+r.items.length+' exercises'+(last?' · last '+nice(last):'')+'</div>'+(showSwap&&pv.n?'<div class="swapnote">'+pv.n+' swapped for '+S.mode+' kit</div>':'')+'</div><button class="btn" data-act="start" data-r="'+r.id+'">Start</button></div></div>';
 }
 function vToday(){
   var wd=new Date().getDay(),planId=S.plan[wd],plan=planId&&rById(planId);
   var ws=weekStats(),goal=S.settings.weekGoal;
   var h=head('Today',{mode:true,gear:true});
   h+='<p class="dim sm" style="margin:0 0 4px">'+(S.mode==='home'?'Home mode: every workout swaps to exercises you can do with your home kit.':'Gym mode: workouts run as written. Gym closed? Tap Home and the same workout converts.')+'</p>';
-  if(!S.settings.welcomed&&!S.sessions.length)h+='<div class="card hl"><b>Welcome to Gymnify</b><ul class="sm dim" style="margin:8px 0 10px;padding-left:18px"><li>Start an empty workout or build your own routine, then log weight and reps for each set. The rest timer starts when you tick a set.</li><li>Gym closed? Tap <b>Home</b> and the same workout swaps to the kit you have.</li><li>Your data stays on this device. Use Settings to back it up.</li></ul><button class="btn sm" data-act="welcome">Got it</button></div>';
   if(plan)h+='<div class="lab" style="margin-top:12px">Planned for '+DOW[wd]+'</div>'+routineCard(plan,true);
   else h+='<div class="card sm dim">Nothing planned for '+DOW[wd]+'. Set a weekly plan in Workouts, or pick one below.</div>';
-  if(!S.routines.length)h+='<div class="card" style="margin-top:12px"><b>No routines yet</b><p class="sm dim" style="margin:6px 0 10px">Start an empty workout and add exercises as you go, build your own routine, or import one. You can also add the example programmes.</p><div class="row wrap"><button class="btn sm" data-act="empty">+ Empty workout</button><button class="btn ghost sm" data-act="newroutine">+ New routine</button><button class="btn ghost sm" data-act="import">Import</button><button class="btn ghost sm" data-act="restorestarters">Add example programmes</button></div></div>';
+  if(!S.routines.length)h+='<div class="card" style="margin-top:12px"><b>No routines yet</b><p class="sm dim" style="margin:6px 0 10px">Start an empty workout and add exercises as you go, build your own routine, or import one. You can also add the example programmes.</p><div class="row wrap"><button class="btn sm" data-act="build">Build my routine</button><button class="btn ghost sm" data-act="empty">+ Empty workout</button><button class="btn ghost sm" data-act="newroutine">+ New routine</button><button class="btn ghost sm" data-act="import">Import</button><button class="btn ghost sm" data-act="restorestarters">Add example programmes</button></div></div>';
   var rec=S.routines.slice().sort(function(a,b){return (S.lastDone[b.id]||'').localeCompare(S.lastDone[a.id]||'')}).filter(function(r){return r.id!==planId}).slice(0,4);
   if(rec.length){h+='<div class="lab" style="margin-top:14px">Start another</div>'+rec.map(function(r){return routineCard(r,true)}).join('')}
   h+='<div class="row" style="margin:10px 0"><button class="btn ghost sp" data-act="empty">+ Empty workout</button><button class="btn ghost sp" data-act="goto" data-t="work">All workouts</button></div>';
@@ -711,13 +839,13 @@ function toast(t,ms){var o=$('#toast');if(o)o.remove();var d=document.createElem
 /* ---------- Workouts (routines) ---------- */
 function vWorkouts(){
   var h=head('Workouts',{mode:true,gear:true});
-  h+='<div class="row wrap" style="margin-bottom:6px"><button class="btn sm" data-act="newroutine">+ New routine</button><button class="btn ghost sm" data-act="import">Import</button><button class="btn ghost sm" data-act="planweek">Weekly plan</button></div>';
+  h+='<div class="row wrap" style="margin-bottom:6px"><button class="btn sm" data-act="build">Build for me</button><button class="btn ghost sm" data-act="newroutine">+ New routine</button><button class="btn ghost sm" data-act="import">Import</button><button class="btn ghost sm" data-act="planweek">Weekly plan</button></div>';
   var tags=[];S.routines.forEach(function(r){var t=r.tag||'My routines';if(tags.indexOf(t)<0)tags.push(t)});
   tags.forEach(function(t){
     h+='<div class="lab" style="margin-top:16px">'+esc(t)+'</div>';
     S.routines.filter(function(r){return (r.tag||'My routines')===t}).forEach(function(r){
       var pv=previewSwaps(r,S.mode),last=S.lastDone[r.id];
-      h+='<div class="card"><div class="row"><div class="sp" style="min-width:0"><b>'+esc(r.name)+'</b><div class="sm dim">'+r.items.length+' exercises · '+r.items.reduce(function(a,i){return a+i.sets},0)+' sets'+(last?' · last '+nice(last):'')+'</div>'+(pv.n?'<div class="swapnote">'+pv.n+' swapped for '+S.mode+' kit</div>':'')+'</div><button class="btn ghost sm" data-act="rmenu" data-r="'+r.id+'" aria-label="Routine options">&#8943;</button><button class="btn" data-act="start" data-r="'+r.id+'">Start</button></div></div>';
+      h+='<div class="card"><div class="row"><div class="sp" style="min-width:0;cursor:pointer" data-act="rview" data-r="'+r.id+'"><b>'+esc(r.name)+'</b><div class="sm dim">'+r.items.length+' exercises · '+r.items.reduce(function(a,i){return a+i.sets},0)+' sets'+(last?' · last '+nice(last):'')+'</div>'+(pv.n?'<div class="swapnote">'+pv.n+' swapped for '+S.mode+' kit</div>':'')+'</div><button class="btn ghost sm" data-act="rmenu" data-r="'+r.id+'" aria-label="Routine options">&#8943;</button><button class="btn" data-act="start" data-r="'+r.id+'">Start</button></div></div>';
     });
   });
   if(!S.routines.length)h+='<div class="empty">No routines yet. Make one or restore the starter programmes in Settings.</div>';
@@ -883,6 +1011,8 @@ function vSettings(){
   var s=S.settings,h=head('Settings',{back:true});
   h+='<div class="card"><h3>Training</h3><div class="grid2" style="margin-top:10px"><div><span class="lab">Default rest (s)</span><input data-set="rest" inputmode="numeric" value="'+s.rest+'"></div><div><span class="lab">Workouts per week goal</span><input data-set="weekGoal" inputmode="numeric" value="'+s.weekGoal+'"></div></div><label class="row sm" style="gap:8px;margin-top:12px"><input type="checkbox" data-set="rpe" '+(s.rpe?'checked':'')+' style="width:auto"> Show an RPE column in workouts</label></div>';
   h+='<div class="card"><h3>Equipment</h3><p class="sm dim" style="margin:6px 0 10px">Tick what each place has. Exercises needing anything unticked are swapped automatically when you train there.</p><div class="lab">At the gym</div><div class="kit" style="margin:6px 0 12px">'+EQUIP.map(function(q){return '<button class="chip '+(s.kitGym[q[0]]?'on':'')+'" data-act="kit" data-w="Gym" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div><div class="lab">At home</div><div class="kit" style="margin-top:6px">'+EQUIP.map(function(q){return '<button class="chip '+(s.kitHome[q[0]]?'on':'')+'" data-act="kit" data-w="Home" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div></div>';
+  h+='<div class="card"><h3>Appearance</h3>'+themeTiles()+'</div>';
+  h+='<div class="card"><h3>Setup</h3><p class="sm dim" style="margin:6px 0 10px">Build a plan for your goal, or run the first-time setup again.</p><div class="row wrap"><button class="btn sm" data-act="build">Routine builder</button><button class="btn ghost sm" data-act="resetup">Run setup again</button></div></div>';
   h+=acctCard();
   h+='<div class="card"><h3>Data</h3><div class="sm dim" style="margin:6px 0 10px" id="syncmsg"></div><div class="row wrap"><button class="btn ghost sm" data-act="syncnow">Sync now</button><button class="btn ghost sm" data-act="backup">Copy backup</button><button class="btn ghost sm" data-act="dlbackup">Download backup</button><button class="btn ghost sm" data-act="restorestarters">Add example programmes</button></div><p class="xs faint" style="margin:10px 0 0">Photos are not part of the backup. They live on this device only.</p></div>';
   h+='<div class="card"><h3>Reset</h3><p class="sm dim" style="margin:6px 0 10px">Deletes everything in Gymnify on this device (and your synced copy at the next sync).</p><button class="btn crit sm" data-act="resetall">Delete all gym data</button></div>';
@@ -1081,10 +1211,23 @@ document.addEventListener('click',function(ev){
   case 'tab':go(el.dataset.t);break;
   case 'goto':go(el.dataset.t);break;
   case 'back':back();break;
-  case 'welcome':S.settings.welcomed=true;save();render();break;
+  case 'rview':{var rr=rById(el.dataset.r);if(!rr)break;var nsets=rr.items.reduce(function(a,i){return a+i.sets},0);
+    sheet('<h2>'+esc(rr.name)+'</h2><p class="sm dim" style="margin:4px 0 10px">'+rr.items.length+' exercises, '+nsets+' sets</p>'+rr.items.map(function(it){var e=EX[it.ex];return '<div class="row" style="padding:7px 0;border-bottom:1px solid var(--border)"><span class="sp">'+esc(e?e.name:it.ex)+'</span><span class="dim mono sm">'+(e&&e.type==='t'?it.reps+'s':it.sets+' x '+it.reps)+'</span></div>'}).join('')+'<div class="row" style="margin-top:14px"><button class="btn sp" data-act="start" data-r="'+rr.id+'">Start</button><button class="btn ghost" data-act="redit" data-r="'+rr.id+'">Edit</button></div>');break}
+  case 'theme':S.settings.theme=el.dataset.t;save();applyTheme();render();break;
+  case 'accent':S.settings.accent=el.dataset.c||'';save();applyTheme();render();break;
+  case 'build':ui.build=buildDefaults();go('work',{k:'builder'});break;
+  case 'bset':ui.build=ui.build||buildDefaults();ui.build[el.dataset.k]=(el.dataset.k==='days'||el.dataset.k==='mins')?+el.dataset.v:el.dataset.v;ui.build.shuffle=0;render();break;
+  case 'bshuffle':ui.build.shuffle=(ui.build.shuffle||0)+1;render();break;
+  case 'bsave':{var nb=saveBuilt(ui.build);toast('Saved '+nb+' routines and set your week');go('work');break}
+  case 'su':{var pp=suProfile();pp[el.dataset.k]=(el.dataset.k==='days'||el.dataset.k==='mins')?+el.dataset.v:el.dataset.v;if(el.dataset.k==='where')S.mode=el.dataset.v;save();render();break}
+  case 'sunext':ui.setup.step=Math.min(ui.setup.step+1,SU_STEPS.length-1);render();break;
+  case 'suback':ui.setup.step=Math.max(ui.setup.step-1,0);render();break;
+  case 'sufinish':{var pf=suProfile();S.settings.setupDone=true;if(el.dataset.build==='1'){S.mode=pf.where;saveBuilt(Object.assign(buildDefaults(),pf,{shuffle:0}))}save();nav={tab:'today',sub:null};render();break}
+  case 'resetup':S.settings.setupDone=false;ui.setup={step:0};save();render();break;
   case 'settings':go(nav.tab,{k:'settings'});break;
   case 'closesheet':closeSheet();break;
   case 'start':
+    closeSheet();
     if(S.active){toast('Finish or discard your current workout first');openWorkout();break}
     startRoutine(el.dataset.r,S.mode);openWorkout();break;
   case 'empty':if(S.active){openWorkout();break}startEmpty();openWorkout();break;
@@ -1213,6 +1356,7 @@ window.addEventListener('popstate',function(ev){
 /* ---------- boot ---------- */
 try{history.replaceState({gym:1,tab:'today',sub:null},'')}catch(e){}
 if(S.active&&Date.now()-S.active.start>1000*60*60*14){/* stale unfinished workout, keep but don't auto-open */}
+applyTheme();
 render();
 pull(function(changed){if(changed)render()});
 try{if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js')}catch(e){}
