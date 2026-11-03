@@ -412,12 +412,38 @@ function previewSwaps(r,mode){
   var n=0,list=[];r.items.forEach(function(i){var x=resolve(i.ex,mode);if(x&&x!==i.ex){n++;list.push(exName(i.ex)+' → '+exName(x))}});return {n:n,list:list};
 }
 
-/* ---------- sync (Supabase, optional) ---------- */
+/* ---------- accounts + sync (Supabase, optional) ---------- */
+// The URL and publishable key are meant to be public. Row Level Security on gymnify_state
+// means a signed-in user can only ever read or write their own row.
+var SB_URL='https://davompbqkwiiiecfuthx.supabase.co',SB_KEY='sb_publishable__eUvb5quOJOjpsLqK0dRfA_C81_WXlN',AKEY='gymnify.auth';
 var sync={state:'local',msg:'Saved on this device',timer:null,busy:false};
-function sbReady(){return !!(window.SUPABASE_URL&&window.SUPABASE_ANON_KEY)}
+function authGet(){try{return JSON.parse(localStorage.getItem(AKEY)||'null')}catch(e){return null}}
+function authSet(a){try{if(a)localStorage.setItem(AKEY,JSON.stringify(a));else localStorage.removeItem(AKEY)}catch(e){}}
+function sbReady(){var a=authGet();return !!(a&&a.refresh_token)}
+function authFromResp(j){return {access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600),email:(j.user&&j.user.email)||''}}
+function authCall(path,body){
+  return fetch(SB_URL+'/auth/v1/'+path,{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)})
+   .then(function(r){return r.json().then(function(j){return {ok:r.ok,status:r.status,j:j}},function(){return {ok:r.ok,status:r.status,j:{}}})});
+}
+var refreshing=null;
+function token(){
+  var a=authGet();if(!a)return Promise.reject(new Error('signed out'));
+  if(a.expires_at>Date.now()/1000+60)return Promise.resolve(a.access_token);
+  if(refreshing)return refreshing;
+  refreshing=authCall('token?grant_type=refresh_token',{refresh_token:a.refresh_token}).then(function(r){
+    refreshing=null;
+    if(r.ok&&r.j.access_token){var n=authFromResp(r.j);if(!n.email)n.email=a.email;authSet(n);return n.access_token}
+    if(r.status===400||r.status===401){authSet(null);sync.state='local';sync.msg='Signed out. Sign in again to sync.';paintSync()}
+    throw new Error('refresh failed');
+  },function(e){refreshing=null;throw e});
+  return refreshing;
+}
 function sbFetch(path,opts){
-  opts=opts||{};opts.headers=Object.assign({apikey:window.SUPABASE_ANON_KEY,Authorization:'Bearer '+window.SUPABASE_ANON_KEY,'Content-Type':'application/json'},opts.headers||{});
-  return fetch(window.SUPABASE_URL+'/rest/v1/'+path,opts);
+  opts=opts||{};
+  return token().then(function(t){
+    opts.headers=Object.assign({apikey:SB_KEY,Authorization:'Bearer '+t,'Content-Type':'application/json'},opts.headers||{});
+    return fetch(SB_URL+'/rest/v1/'+path,opts);
+  });
 }
 function queueSync(){
   if(!sbReady()||sync.state==='missing')return;
@@ -425,17 +451,19 @@ function queueSync(){
 }
 function push(){
   if(!sbReady()||sync.busy)return;sync.busy=true;
-  sbFetch('gym_state?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:'me',data:S,updated:S.updated})})
-   .then(function(r){sync.busy=false;if(r.ok){sync.state='ok';sync.msg='Synced '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}else if(r.status===404||r.status===400){sync.state='missing';sync.msg='Not synced: run gym-schema.sql in Supabase'}else{sync.state='err';sync.msg='Sync failed ('+r.status+')'}paintSync()})
-   .catch(function(){sync.busy=false;sync.state='err';sync.msg='Offline, saved on this device';paintSync()});
+  sbFetch('gymnify_state?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({data:S,updated:S.updated||0})})
+   .then(function(r){sync.busy=false;if(r.ok){sync.state='ok';sync.msg='Synced '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}else if(r.status===404){sync.state='missing';sync.msg='Sync is not set up yet'}else if(r.status===401){sync.state='err';sync.msg='Signed out. Sign in again to sync.'}else{sync.state='err';sync.msg='Sync failed ('+r.status+')'}paintSync()})
+   .catch(function(){sync.busy=false;sync.state='err';sync.msg=sbReady()?'Offline, saved on this device':'Saved on this device';paintSync()});
 }
 function pull(cb){
   if(!sbReady()){cb&&cb();return}
-  sbFetch('gym_state?id=eq.me&select=data,updated').then(function(r){
-    if(r.status===404||r.status===400){sync.state='missing';sync.msg='Not synced: run gym-schema.sql in Supabase';paintSync();cb&&cb();return}
+  sbFetch('gymnify_state?select=data,updated').then(function(r){
+    if(r.status===404){sync.state='missing';sync.msg='Sync is not set up yet';paintSync();cb&&cb();return}
     return r.json().then(function(rows){
       if(rows&&rows.length&&rows[0].updated>(S.updated||0)){
         var inc=rows[0].data;if(inc&&inc.v){
+          // keep this device's data as a backup before replacing it with the newer account copy
+          if(S.sessions&&S.sessions.length){try{localStorage.setItem(KEY+'.backup',JSON.stringify(S))}catch(e){}}
           var keepActive=S.active&&(!inc.active||S.active.start>=((inc.active||{}).start||0));
           var a=S.active;S=Object.assign(defaults(),inc);
           S.settings=Object.assign(defaults().settings,inc.settings||{});
@@ -448,7 +476,23 @@ function pull(cb){
     });
   }).catch(function(){sync.state='err';sync.msg='Offline, saved on this device';paintSync();cb&&cb()});
 }
+function doAuth(up){
+  var em=(($('#acct-email')||{}).value||'').trim(),pw=($('#acct-pass')||{}).value||'',msg=$('#acct-msg');
+  if(!msg)return;
+  if(!em||pw.length<8){msg.textContent='Enter your email and a password of 8+ characters';return}
+  msg.textContent='One moment…';
+  authCall(up?'signup':'token?grant_type=password',{email:em,password:pw}).then(function(r){
+    if(r.ok&&r.j.access_token){var a=authFromResp(r.j);a.email=a.email||em;authSet(a);sync.state='local';pull(function(){push();render()});return}
+    if(r.ok&&up){msg.textContent='Account created. Check your email and tap the confirmation link (it may open Klander, that is normal), then come back here and sign in.';return}
+    msg.textContent=(r.j&&(r.j.error_description||r.j.msg||r.j.message))||'That did not work, try again';
+  }).catch(function(){msg.textContent='No connection. Try again when you are online.'});
+}
 function paintSync(){var el=$('#syncmsg');if(el)el.innerHTML=sync.state==='ok'?'<b>'+esc(sync.msg)+'</b>':'<b class="off">'+esc(sync.msg)+'</b>'}
+function acctCard(){
+  var a=authGet();
+  if(a&&a.refresh_token)return '<div class="card"><h3>Account</h3><p class="sm dim" style="margin:6px 0 10px">Signed in as <b>'+esc(a.email||'your account')+'</b>. Your workouts sync between your devices. Progress photos stay on this device.</p><button class="btn ghost sm" data-act="signout">Sign out</button></div>';
+  return '<div class="card"><h3>Account (optional)</h3><p class="sm dim" style="margin:6px 0 10px">Sign in to sync your workouts across devices. You can use Gymnify without an account, and your data stays on this device.</p><div style="display:grid;gap:8px"><input id="acct-email" type="email" autocomplete="username" inputmode="email" autocapitalize="off" placeholder="Email"><input id="acct-pass" type="password" autocomplete="current-password" placeholder="Password (8+ characters)"></div><div class="row" style="margin-top:10px"><button class="btn sm" data-act="signin">Sign in</button><button class="btn ghost sm" data-act="signup">Create account</button></div><div class="sm dim" id="acct-msg" style="margin-top:8px"></div></div>';
+}
 
 /* ---------- photos (IndexedDB, this device only) ---------- */
 var idb=null;
@@ -838,6 +882,7 @@ function vSettings(){
   var s=S.settings,h=head('Settings',{back:true});
   h+='<div class="card"><h3>Training</h3><div class="grid2" style="margin-top:10px"><div><span class="lab">Default rest (s)</span><input data-set="rest" inputmode="numeric" value="'+s.rest+'"></div><div><span class="lab">Workouts per week goal</span><input data-set="weekGoal" inputmode="numeric" value="'+s.weekGoal+'"></div></div><label class="row sm" style="gap:8px;margin-top:12px"><input type="checkbox" data-set="rpe" '+(s.rpe?'checked':'')+' style="width:auto"> Show an RPE column in workouts</label></div>';
   h+='<div class="card"><h3>Equipment</h3><p class="sm dim" style="margin:6px 0 10px">Tick what each place has. Exercises needing anything unticked are swapped automatically when you train there.</p><div class="lab">At the gym</div><div class="kit" style="margin:6px 0 12px">'+EQUIP.map(function(q){return '<button class="chip '+(s.kitGym[q[0]]?'on':'')+'" data-act="kit" data-w="Gym" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div><div class="lab">At home</div><div class="kit" style="margin-top:6px">'+EQUIP.map(function(q){return '<button class="chip '+(s.kitHome[q[0]]?'on':'')+'" data-act="kit" data-w="Home" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div></div>';
+  h+=acctCard();
   h+='<div class="card"><h3>Data</h3><div class="sm dim" style="margin:6px 0 10px" id="syncmsg"></div><div class="row wrap"><button class="btn ghost sm" data-act="syncnow">Sync now</button><button class="btn ghost sm" data-act="backup">Copy backup</button><button class="btn ghost sm" data-act="dlbackup">Download backup</button><button class="btn ghost sm" data-act="restorestarters">Restore starter programmes</button></div><p class="xs faint" style="margin:10px 0 0">Photos are not part of the backup. They live on this device only.</p></div>';
   h+='<div class="card"><h3>Reset</h3><p class="sm dim" style="margin:6px 0 10px">Deletes everything in Gymnify on this device (and your synced copy at the next sync).</p><button class="btn crit sm" data-act="resetall">Delete all gym data</button></div>';
   return h;
@@ -1114,6 +1159,9 @@ document.addEventListener('click',function(ev){
   /* settings */
   case 'kit':{var kk=el.dataset.w==='Home'?S.settings.kitHome:S.settings.kitGym;kk[el.dataset.q]=!kk[el.dataset.q];save();render();break}
   case 'syncnow':sync.state='local';pull(function(){push()});break;
+  case 'signin':doAuth(false);break;
+  case 'signup':doAuth(true);break;
+  case 'signout':authSet(null);sync.state='local';sync.msg='Saved on this device';render();break;
   case 'backup':copyText(JSON.stringify(S),'Backup copied');break;
   case 'dlbackup':{var b=new Blob([JSON.stringify(S)],{type:'application/json'}),u=URL.createObjectURL(b),an=document.createElement('a');an.href=u;an.download='gym-backup-'+today()+'.json';document.body.appendChild(an);an.click();an.remove();setTimeout(function(){URL.revokeObjectURL(u)},2000);break}
   case 'restorestarters':{var have={};S.routines.forEach(function(r8){have[r8.id]=1});var add=SEED.filter(function(r9){return !have[r9.id]});add.forEach(function(r10){S.routines.push(clone(r10))});save();toast(add.length?'Restored '+add.length+' routines':'All starters already there');break}
