@@ -2,7 +2,7 @@
 
 A free, offline-first workout tracker that runs in your browser. No account, no app store, no tracking. Your data stays on your device.
 
-**Live app:** add the link here once it is on GitHub Pages (https://eejekhine.github.io/gymnify/).
+**Live app:** add the link here once it is on GitHub Pages (https://eejekhine.github.io/Gymnify/).
 
 ## What it does
 
