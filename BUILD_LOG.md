@@ -3,12 +3,19 @@
 Newest first. Each entry: what changed, why, and what is next.
 
 ## Plan
-- **M1 Offline + first run** (service worker, welcome card, honest README)
-- **M2 Accounts + sync (built, needs a tester round)** (optional sign-in; per-user tables with row-level security, shared with Klander's Supabase project; the app stays fully usable without an account)
-- **M3 Tester round** (share with testers, collect feedback directly, fix the top issues)
-- **M4 Units, export, privacy (built)**
-- **M5 Safer sync + tests (built)**: per-item merging instead of whole-state overwrite; automated test suite and CI
-- **Later:** exercise demos, supersets, deload weeks, light theme, friends, charts polish
+Done:
+- **M1** Offline support, first-run welcome
+- **M2** Optional accounts and sync (shared Supabase project, row-level security)
+- **M3** Setup wizard, routine builder, themes, tap-to-view routines, blank start
+- **M4** kg/lb units, CSV export, privacy page
+- **M5** Merge-based sync, automated tests (CI workflow file waiting in tests/)
+- **M6** Athlete goal with sport choice, screenshot import, welcome-screen import shortcut
+
+Now: **Tester round** (share the link, collect feedback directly, fix the top issues). Not done yet: real-phone checks of sign-up, sync, screenshot import, offline.
+
+Next (suggested order): supersets, deload weeks, light theme, exercise how-to text, delete-my-account button, then friends (design is on the roadmap page; opt-in, built on Klander friendships).
+
+Each milestone is also copied into the Training Hub's Gym page with tools/build-gym.py in the hub repo.
 
 ## 2026-11-03
 - Welcome screen now has "Import from another app", which skips the setup questions and opens Import (screenshot, pasted text, CSV or backup).
