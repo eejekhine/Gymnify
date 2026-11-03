@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Gym</title>
+<title>Gymnify</title>
+<meta name="apple-mobile-web-app-title" content="Gymnify">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#0d0f1a">
@@ -837,7 +838,7 @@ function vSettings(){
   h+='<div class="card"><h3>Training</h3><div class="grid2" style="margin-top:10px"><div><span class="lab">Default rest (s)</span><input data-set="rest" inputmode="numeric" value="'+s.rest+'"></div><div><span class="lab">Workouts per week goal</span><input data-set="weekGoal" inputmode="numeric" value="'+s.weekGoal+'"></div></div><label class="row sm" style="gap:8px;margin-top:12px"><input type="checkbox" data-set="rpe" '+(s.rpe?'checked':'')+' style="width:auto"> Show an RPE column in workouts</label></div>';
   h+='<div class="card"><h3>Equipment</h3><p class="sm dim" style="margin:6px 0 10px">Tick what each place has. Exercises needing anything unticked are swapped automatically when you train there.</p><div class="lab">At the gym</div><div class="kit" style="margin:6px 0 12px">'+EQUIP.map(function(q){return '<button class="chip '+(s.kitGym[q[0]]?'on':'')+'" data-act="kit" data-w="Gym" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div><div class="lab">At home</div><div class="kit" style="margin-top:6px">'+EQUIP.map(function(q){return '<button class="chip '+(s.kitHome[q[0]]?'on':'')+'" data-act="kit" data-w="Home" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div></div>';
   h+='<div class="card"><h3>Data</h3><div class="sm dim" style="margin:6px 0 10px" id="syncmsg"></div><div class="row wrap"><button class="btn ghost sm" data-act="syncnow">Sync now</button><button class="btn ghost sm" data-act="backup">Copy backup</button><button class="btn ghost sm" data-act="dlbackup">Download backup</button><button class="btn ghost sm" data-act="restorestarters">Restore starter programmes</button></div><p class="xs faint" style="margin:10px 0 0">Photos are not part of the backup. They live on this device only.</p></div>';
-  h+='<div class="card"><h3>Reset</h3><p class="sm dim" style="margin:6px 0 10px">Deletes everything in the Gym app on this device (and your synced copy at the next sync).</p><button class="btn crit sm" data-act="resetall">Delete all gym data</button></div>';
+  h+='<div class="card"><h3>Reset</h3><p class="sm dim" style="margin:6px 0 10px">Deletes everything in Gymnify on this device (and your synced copy at the next sync).</p><button class="btn crit sm" data-act="resetall">Delete all gym data</button></div>';
   return h;
 }
 
