@@ -1,0 +1,6 @@
+{
+  "name": "gymnify",
+  "private": true,
+  "scripts": { "test": "node tests/run.js" },
+  "devDependencies": { "playwright": "^1.48.0" }
+}

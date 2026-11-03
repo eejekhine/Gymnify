@@ -7,9 +7,13 @@ Newest first. Each entry: what changed, why, and what is next.
 - **M2 Accounts + sync (built, needs a tester round)** (optional sign-in; per-user tables with row-level security, shared with Klander's Supabase project; the app stays fully usable without an account)
 - **M3 Tester round** (share with testers, collect feedback directly, fix the top issues)
 - **M4 Units, export, privacy (built)**
+- **M5 Safer sync + tests (built)**: per-item merging instead of whole-state overwrite; automated test suite and CI
 - **Later:** exercise demos, supersets, deload weeks, light theme, friends, charts polish
 
 ## 2026-11-03
+- M5: sync now merges instead of overwriting. Workouts, routines, body weight, measurements and custom exercises from two devices are combined by id/date; deletions travel as tombstones (kept 120 days) so a deleted routine does not come back; Delete all data also clears the other device. A device with nothing on it takes the account copy. Where the same routine differs, the more recently saved copy wins. The pre-merge local copy is still kept under `gym.v1.backup`.
+- M5: automated tests (`npm test`, 18 checks: first run, merge rules, kg/lb, CSV, setup wizard) and a GitHub Actions workflow that runs them on every push.
+- Decision: example programmes stay optional; email confirmation to be switched off in the shared Supabase project so testers sign up in one step.
 - M4: kg/lb switch (Settings > Training). Data is always stored in kg and converted for display and entry, so switching is lossless. Covers set inputs, progression hints (5 lb steps in lb), plate calculator (45 lb bar and lb plates), charts, PRs, body weight and goal weight.
 - M4: Export CSV (Settings > Data): every completed set with date, workout, exercise, type (warm-up or working), weight, reps, RPE and PR flag.
 - M4: Privacy and data page (Settings > About) saying what is stored on the device, what is synced with an account, and what is never done.

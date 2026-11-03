@@ -282,7 +282,7 @@ function defaults(){
   var home=kitAll();Object.keys(home).forEach(function(k){home[k]=(k==='dumbbell'||k==='band'||k==='box')});
   return {v:1,updated:0,mode:'gym',seeded:true,
     settings:{unit:'kg',rest:90,rpe:false,weekGoal:3,goalKg:'',theme:'gymnify',accent:'',setupDone:false,kitGym:kitAll(),kitHome:home},
-    routines:[],customEx:[],sessions:[],active:null,plan:{},weights:[],measures:[],lastDone:{}};
+    routines:[],customEx:[],sessions:[],active:null,plan:{},weights:[],measures:[],lastDone:{},tomb:{}};
 }
 function load(){
   var d=defaults(),raw=null;
@@ -463,22 +463,59 @@ function push(){
    .then(function(r){sync.busy=false;if(r.ok){sync.state='ok';sync.msg='Synced '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}else if(r.status===404){sync.state='missing';sync.msg='Sync is not set up yet'}else if(r.status===401){sync.state='err';sync.msg='Signed out. Sign in again to sync.'}else{sync.state='err';sync.msg='Sync failed ('+r.status+')'}paintSync()})
    .catch(function(){sync.busy=false;sync.state='err';sync.msg=sbReady()?'Offline, saved on this device':'Saved on this device';paintSync()});
 }
+
+/* ---------- merging two copies of the data (two devices, or a device and the account) ---------- */
+function tomb(k){S.tomb=S.tomb||{};S.tomb[k]=Date.now()}
+function untomb(k){if(S.tomb)delete S.tomb[k]}
+function unionBy(a,b,keyf,pref,dead,pre){
+  var m={},order=[];
+  (a||[]).concat(b||[]).forEach(function(x,i){var k=keyf(x);if(dead[pre+k])return;
+    if(!(k in m)){m[k]=x;order.push(k)}else if(i>=(a||[]).length&&pref==='b')m[k]=x});
+  return order.map(function(k){return m[k]});
+}
+function mergeState(loc,inc){
+  var fresh=!(loc.sessions&&loc.sessions.length)&&!(loc.routines&&loc.routines.length)&&!(loc.weights&&loc.weights.length);
+  var incNewer=fresh||(inc.updated||0)>(loc.updated||0);
+  var pref=incNewer?'b':'a';
+  var dead=Object.assign({},loc.tomb||{},inc.tomb||{});
+  var cut=Date.now()-120*864e5;Object.keys(dead).forEach(function(k){if(dead[k]<cut)delete dead[k]});
+  var base=incNewer?inc:loc,out=Object.assign({},base);
+  out.settings=Object.assign({},defaults().settings,(incNewer?inc:loc).settings||{});
+  out.sessions=unionBy(loc.sessions,inc.sessions,function(x){return x.id},pref,dead,'s:');
+  out.routines=unionBy(loc.routines,inc.routines,function(x){return x.id},pref,dead,'r:');
+  out.weights=unionBy(loc.weights,inc.weights,function(x){return x.d},pref,dead,'w:');
+  out.measures=unionBy(loc.measures,inc.measures,function(x){return x.d},pref,dead,'m:');
+  out.customEx=unionBy(loc.customEx,inc.customEx,function(x){return x.id},pref,dead,'x:');
+  var ld=Object.assign({},incNewer?loc.lastDone:inc.lastDone,base.lastDone||{});
+  Object.keys(Object.assign({},loc.lastDone,inc.lastDone)).forEach(function(k){var a=(loc.lastDone||{})[k]||'',b=(inc.lastDone||{})[k]||'';ld[k]=a>b?a:b});
+  out.lastDone=ld;out.tomb=dead;
+  out.plan=Object.assign({},base.plan||{});
+  Object.keys(out.plan).forEach(function(d){var ids=out.plan[d];if(Array.isArray(ids))out.plan[d]=ids.filter(function(id){return !dead['r:'+id]})});
+  out.updated=Math.max(loc.updated||0,inc.updated||0);
+  return out;
+}
+function sameSynced(a,b){
+  function sig(s){return JSON.stringify([(s.sessions||[]).map(function(x){return x.id}).sort(),(s.routines||[]).map(function(x){return x.id}).sort(),(s.weights||[]).map(function(x){return x.d}).sort(),(s.measures||[]).map(function(x){return x.d}).sort(),(s.customEx||[]).map(function(x){return x.id}).sort(),Object.keys(s.tomb||{}).sort()])}
+  return sig(a)===sig(b);
+}
 function pull(cb){
   if(!sbReady()){cb&&cb();return}
   sbFetch('gymnify_state?select=data,updated').then(function(r){
     if(r.status===404){sync.state='missing';sync.msg='Sync is not set up yet';paintSync();cb&&cb();return}
     return r.json().then(function(rows){
-      if(rows&&rows.length&&rows[0].updated>(S.updated||0)){
-        var inc=rows[0].data;if(inc&&inc.v){
-          // keep this device's data as a backup before replacing it with the newer account copy
-          if(S.sessions&&S.sessions.length){try{localStorage.setItem(KEY+'.backup',JSON.stringify(S))}catch(e){}}
-          var keepActive=S.active&&(!inc.active||S.active.start>=((inc.active||{}).start||0));
-          var a=S.active;S=Object.assign(defaults(),inc);
-          S.settings=Object.assign(defaults().settings,inc.settings||{});
-          if(keepActive)S.active=a;registerCustom(S.customEx);
-          try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
-          sync.state='ok';sync.msg='Updated from your other device';
-        }
+      var inc=rows&&rows.length?rows[0].data:null;
+      if(inc&&inc.v&&!sameSynced(S,inc)||(inc&&inc.v&&rows[0].updated>(S.updated||0))){
+        // keep this device's data as a backup before combining it with the account copy
+        if(S.sessions&&S.sessions.length){try{localStorage.setItem(KEY+'.backup',JSON.stringify(S))}catch(e){}}
+        var a=S.active,merged=mergeState(S,inc),needPush=!sameSynced(merged,inc);
+        var keepActive=a&&(!inc.active||a.start>=((inc.active||{}).start||0));
+        S=Object.assign(defaults(),merged);
+        S.active=keepActive?a:(inc.active||null);
+        registerCustom(S.customEx);
+        if(needPush)S.updated=Date.now();
+        try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+        sync.state='ok';sync.msg=needPush?'Combined with your other device':'Updated from your other device';
+        if(needPush)queueSync();
       }else{sync.state='ok';sync.msg='Up to date';if(S.updated)queueSync()}
       paintSync();cb&&cb(true);
     });
@@ -567,6 +604,7 @@ function genPlan(o){
 }
 function saveBuilt(o){
   var plan=genPlan(o);
+  S.routines.forEach(function(r){if(r.tag==='Built for you')tomb('r:'+r.id)});
   S.routines=S.routines.filter(function(r){return r.tag!=='Built for you'});
   var ids=[];
   plan.forEach(function(d){var r={id:uid(),name:d.name,tag:'Built for you',items:d.items};S.routines.push(r);ids.push(r.id)});
@@ -1302,7 +1340,7 @@ document.addEventListener('click',function(ev){
   case 'rdup':{var o=rById(el.dataset.r),c=clone(o);c.id=uid();c.name=o.name+' copy';S.routines.push(c);save();closeSheet();render();toast('Duplicated');break}
   case 'rcopy':copyText(routineText(rById(el.dataset.r)),'Copied. Paste it anywhere, or import it on another device');closeSheet();break;
   case 'rdel':sheet('<h2>Delete this routine?</h2><div class="row"><button class="btn ghost sp" data-act="closesheet">Cancel</button><button class="btn crit sp" data-act="rdelok" data-r="'+el.dataset.r+'">Delete</button></div>');break;
-  case 'rdelok':S.routines=S.routines.filter(function(r2){return r2.id!==el.dataset.r});save();closeSheet();render();break;
+  case 'rdelok':tomb('r:'+el.dataset.r);S.routines=S.routines.filter(function(r2){return r2.id!==el.dataset.r});save();closeSheet();render();break;
   case 'ritemadd':pickSheet('Add to routine',function(id){var r3=rById(nav.sub.id),x3=EX[id];r3.items.push({ex:id,sets:3,reps:x3.type==='t'?'30':'10',rest:0,note:''});save();ui.keepScroll=true;render()});break;
   case 'ritemrm':{var r4=rById(nav.sub.id);r4.items.splice(i,1);save();ui.keepScroll=true;render();break}
   case 'ritemup':{var r5=rById(nav.sub.id);if(i>0){var tt=r5.items[i];r5.items[i]=r5.items[i-1];r5.items[i-1]=tt;save();ui.keepScroll=true;render()}break}
@@ -1316,14 +1354,14 @@ document.addEventListener('click',function(ev){
   case 'newex':newExSheet();break;
   case 'cxeq':el.classList.toggle('on');break;
   case 'savecx':{var nm=$('#cx-name').value.trim();if(!nm){toast('Give it a name');break}var eq=$$('#cx-eq .chip.on').map(function(c){return c.dataset.q});addCustomEx(nm,$('#cx-m').value,$('#cx-t').value,eq);save();closeSheet();render();toast('Added');break}
-  case 'delex':S.customEx=S.customEx.filter(function(c){return c.id!==el.dataset.id});delete EX[el.dataset.id];EXLIST.splice(EXLIST.findIndex(function(x){return x.id===el.dataset.id}),1);save();closeSheet();render();break;
+  case 'delex':tomb('x:'+el.dataset.id);S.customEx=S.customEx.filter(function(c){return c.id!==el.dataset.id});delete EX[el.dataset.id];EXLIST.splice(EXLIST.findIndex(function(x){return x.id===el.dataset.id}),1);save();closeSheet();render();break;
   /* progress + body */
   case 'progtab':ui.prog=el.dataset.t;render();break;
   case 'bodytab':ui.body=el.dataset.t;ui.sel=[];render();break;
-  case 'addweight':{var v=fromU($('#bw-in').value);if(v<20||v>400){toast('Enter your weight in '+UL());break}v=Math.round(v*100)/100;var d0=today();S.weights=S.weights.filter(function(w){return w.d!==d0});S.weights.push({d:d0,kg:v});save();render();toast('Logged');break}
-  case 'delweight':S.weights=S.weights.filter(function(w){return w.d!==el.dataset.d});save();render();break;
-  case 'addmeasure':{var vv={},any=false;['chest','waist','hips','arm','thigh','neck'].forEach(function(k){var x4=num($('#ms-'+k).value);if(x4){vv[k]=x4;any=true}});if(!any){toast('Enter at least one');break}var d1=today();S.measures=S.measures.filter(function(m){return m.d!==d1});S.measures.push({d:d1,v:vv});save();render();toast('Saved');break}
-  case 'delmeasure':S.measures=S.measures.filter(function(m){return m.d!==el.dataset.d});save();render();break;
+  case 'addweight':{var v=fromU($('#bw-in').value);if(v<20||v>400){toast('Enter your weight in '+UL());break}v=Math.round(v*100)/100;var d0=today();untomb('w:'+d0);S.weights=S.weights.filter(function(w){return w.d!==d0});S.weights.push({d:d0,kg:v});save();render();toast('Logged');break}
+  case 'delweight':tomb('w:'+el.dataset.d);S.weights=S.weights.filter(function(w){return w.d!==el.dataset.d});save();render();break;
+  case 'addmeasure':{var vv={},any=false;['chest','waist','hips','arm','thigh','neck'].forEach(function(k){var x4=num($('#ms-'+k).value);if(x4){vv[k]=x4;any=true}});if(!any){toast('Enter at least one');break}var d1=today();untomb('m:'+d1);S.measures=S.measures.filter(function(m){return m.d!==d1});S.measures.push({d:d1,v:vv});save();render();toast('Saved');break}
+  case 'delmeasure':tomb('m:'+el.dataset.d);S.measures=S.measures.filter(function(m){return m.d!==el.dataset.d});save();render();break;
   case 'photosel':{var id=el.dataset.id,k=ui.sel.indexOf(id);if(k>=0)ui.sel.splice(k,1);else{if(ui.sel.length>=2)ui.sel.shift();ui.sel.push(id)}render();break}
   case 'compare':compareSheet();break;
   case 'delphotos':Promise.all(ui.sel.map(dbDel)).then(function(){ui.sel=[];closeSheet();render()});break;
@@ -1340,7 +1378,7 @@ document.addEventListener('click',function(ev){
   case 'dlbackup':{var b=new Blob([JSON.stringify(S)],{type:'application/json'}),u=URL.createObjectURL(b),an=document.createElement('a');an.href=u;an.download='gym-backup-'+today()+'.json';document.body.appendChild(an);an.click();an.remove();setTimeout(function(){URL.revokeObjectURL(u)},2000);break}
   case 'restorestarters':{var have={};S.routines.forEach(function(r8){have[r8.id]=1});var add=SEED.filter(function(r9){return !have[r9.id]});add.forEach(function(r10){S.routines.push(clone(r10))});save();toast(add.length?'Restored '+add.length+' routines':'All starters already there');break}
   case 'resetall':sheet('<h2>Delete all gym data?</h2><p class="dim">Workouts, routines, body logs and settings. This can\'t be undone.</p><div class="row"><button class="btn ghost sp" data-act="closesheet">Cancel</button><button class="btn crit sp" data-act="resetok">Delete everything</button></div>');break;
-  case 'resetok':S=defaults();EXLIST=EXLIST.filter(function(e){return !e.custom});save();closeSheet();nav={tab:'today',sub:null};render();break;
+  case 'resetok':{var tb=Object.assign({},S.tomb||{}),now0=Date.now();S.sessions.forEach(function(x){tb['s:'+x.id]=now0});S.routines.forEach(function(x){tb['r:'+x.id]=now0});S.weights.forEach(function(x){tb['w:'+x.d]=now0});S.measures.forEach(function(x){tb['m:'+x.d]=now0});S.customEx.forEach(function(x){tb['x:'+x.id]=now0});S=defaults();S.tomb=tb;EXLIST=EXLIST.filter(function(e){return !e.custom});save();closeSheet();nav={tab:'today',sub:null};render();break}
   /* import */
   case 'impparse':{var tx=$('#imp-text').value,un=$('#imp-unit').value;var pr2=parseAny(tx,un);ui.imp={text:tx,unit:un,parsed:pr2};if(!pr2)toast('Nothing to read yet');render();break}
   case 'impback':ui.imp=ui.imp?{text:ui.imp.text,unit:ui.imp.unit}:null;render();break;
