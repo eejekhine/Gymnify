@@ -12,6 +12,7 @@ const srv = http.createServer((q, r) => {
   try { const f = path.join(root, u.slice(1)); r.setHeader('content-type', mime[path.extname(f)] || 'text/plain'); r.end(fs.readFileSync(f)); } catch (e) { r.statusCode = 404; r.end(); }
 });
 let pass = 0, fail = 0;
+const EXLISTJ = ['max_jump','jump_squat','depth_sl','sl_hop','broad','ankle_hop','pogo','approach','tuck_jump'];
 const NOW = Date.now();
 const mime = { '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png' };
 const eq = (name, got, want) => { const ok = JSON.stringify(got) === JSON.stringify(want); ok ? pass++ : fail++; console.log((ok ? 'PASS ' : 'FAIL ') + name + (ok ? '' : '\n   got:  ' + JSON.stringify(got) + '\n   want: ' + JSON.stringify(want))); };
@@ -81,6 +82,12 @@ const eq = (name, got, want) => { const ok = JSON.stringify(got) === JSON.string
   eq('home plan has no barbell lifts', st.routines.some(r => r.items.some(i => ['bench', 'squat', 'deadlift', 'bb_row', 'ohp'].includes(i.ex))), false);
   eq('setup marked done', st.settings.setupDone, true);
 
+  // --- athlete goal
+  const pp = await b2.newPage ? null : null;
+  const pl = await p2.evaluate(() => EV("genPlan({goal:'athlete',sport:'basketball',exp:'intermediate',days:4,mins:60,where:'gym',shuffle:0}).map(function(d){return [d.name,d.items.map(function(i){return i.ex})]})"));
+  const lowerHasJump = pl.filter(d => /Lower/.test(d[0])).every(d => d[1].some(id => EXLISTJ.includes(id)));
+  eq('athlete plan puts jump work on lower days', lowerHasJump, true);
+  eq('athlete plan keeps jumps off upper days', pl.filter(d => /Upper/.test(d[0])).some(d => d[1].some(id => EXLISTJ.includes(id))), false);
   eq('no page errors', errs, []);
   await b2.close(); srv.close();
   console.log('\n' + pass + ' passed, ' + fail + ' failed');

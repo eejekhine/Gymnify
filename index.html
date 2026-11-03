@@ -565,14 +565,15 @@ function themeTiles(){
 }
 
 /* ---------- routine builder ---------- */
-var GOALS=[['strength','Get stronger','Heavier weights, fewer reps, longer rests'],['muscle','Build muscle','Moderate weights, 8 to 12 reps'],['fatloss','Lose fat and stay fit','Shorter rests and a cardio finisher'],['general','General fitness','A balanced mix, easy to stick to']];
+var GOALS=[['athlete','Perform in my sport','Strength, power and speed for basketball, football, rugby, running and more'],['strength','Get stronger','Heavier weights, fewer reps, longer rests'],['muscle','Build muscle','Moderate weights, 8 to 12 reps'],['fatloss','Lose fat and stay fit','Shorter rests and a cardio finisher'],['general','General fitness','A balanced mix, easy to stick to']];
+var SPORTS=[['basketball','Basketball or volleyball'],['field','Football, rugby or hockey'],['combat','Combat sports'],['run','Running or athletics'],['other','Other sport']];
 var EXPS=[['beginner','Beginner','New, or coming back after a break'],['intermediate','Intermediate','Training regularly for 1 to 3 years'],['advanced','Advanced','3 or more years of consistent training']];
 var T_FB_A=['Quads','Chest','Back','Shoulders','Hamstrings','Core','Biceps'],T_FB_B=['Hamstrings','Back','Chest','Quads','Shoulders','Glutes','Triceps'],T_FB_C=['Quads','Back','Chest','Glutes','Shoulders','Core','Biceps'];
 var T_PUSH=['Chest','Shoulders','Chest','Triceps','Shoulders','Triceps'],T_PULL=['Back','Back','Shoulders','Biceps','Biceps','Core'],T_LEGS=['Quads','Hamstrings','Glutes','Quads','Calves','Core'];
 var T_UP=['Chest','Back','Shoulders','Back','Biceps','Triceps'],T_LOW=['Quads','Hamstrings','Glutes','Calves','Core','Quads'];
 var WEEKDAYS={2:[1,4],3:[1,3,5],4:[1,2,4,5],5:[1,2,3,4,5],6:[1,2,3,4,5,6]};
 var HARD=['deadlift','front_squat','dips','hang_leg','pullup','incline_bb','nordic','bulgarian','stepup'],NEVER=['wpullup','wall_lat','max_jump'];
-function buildDefaults(){var p=S.settings.profile||{};return {goal:p.goal||'muscle',exp:p.exp||'beginner',days:p.days||3,mins:p.mins||60,where:p.where||'gym',shuffle:0}}
+function buildDefaults(){var p=S.settings.profile||{};return {goal:p.goal||'muscle',sport:p.sport||'other',exp:p.exp||'beginner',days:p.days||3,mins:p.mins||60,where:p.where||'gym',shuffle:0}}
 function genPlan(o){
   var kitv=kit(o.where),days=+o.days,n={30:4,45:5,60:6,75:7}[+o.mins]||6;
   var plan;
@@ -582,9 +583,9 @@ function genPlan(o){
   else if(days===5)plan=[['Push',T_PUSH],['Pull',T_PULL],['Legs',T_LEGS],['Upper',T_UP],['Lower',T_LOW]];
   else plan=[['Push A',T_PUSH],['Pull A',T_PULL],['Legs A',T_LEGS],['Push B',T_PUSH],['Pull B',T_PULL],['Legs B',T_LEGS]];
   var used={},sets0={beginner:3,intermediate:4,advanced:5}[o.exp]||3,setsA={beginner:3,intermediate:3,advanced:4}[o.exp]||3;
-  var repsMain={strength:'5',muscle:'8',fatloss:'12',general:'10'}[o.goal],repsAcc={strength:'8',muscle:'12',fatloss:'15',general:'12'}[o.goal];
-  var restMain={strength:150,muscle:120,fatloss:60,general:90}[o.goal],restAcc={strength:90,muscle:75,fatloss:45,general:60}[o.goal];
-  if(o.goal==='strength'&&o.exp==='beginner')sets0=3;
+  var repsMain={athlete:'5',strength:'5',muscle:'8',fatloss:'12',general:'10'}[o.goal],repsAcc={athlete:'8',strength:'8',muscle:'12',fatloss:'15',general:'12'}[o.goal];
+  var restMain={athlete:150,strength:150,muscle:120,fatloss:60,general:90}[o.goal],restAcc={athlete:75,strength:90,muscle:75,fatloss:45,general:60}[o.goal];
+  if((o.goal==='strength'||o.goal==='athlete')&&o.exp==='beginner')sets0=3;
   return plan.map(function(d,di){
     var items=[];
     d[1].slice(0,n).forEach(function(mus,si){
@@ -598,6 +599,15 @@ function genPlan(o){
       if(e.type==='t')items.push({ex:e.id,sets:3,reps:'30',rest:45,note:''});
       else items.push({ex:e.id,sets:main?sets0:setsA,reps:main?repsMain:repsAcc,rest:main?restMain:restAcc,note:''});
     });
+    if(o.goal==='athlete'){
+      var lowerDay=/Legs|Lower|Full body/.test(d[0]);
+      var jumps=EXLIST.filter(function(e){return e.muscle==='Jump'&&!e.custom&&NEVER.indexOf(e.id)<0&&e.eq.every(function(q){return kitv[q]})});
+      var easyJ=['jump_squat','broad','pogo','ankle_hop','tuck_jump'];
+      if(o.exp==='beginner')jumps=jumps.filter(function(e){return easyJ.indexOf(e.id)>=0});
+      var nJ=o.sport==='basketball'?2:1;
+      if(lowerDay&&jumps.length){var add=[];for(var jj=0;jj<nJ&&jj<jumps.length;jj++){var je=jumps[((o.shuffle||0)+jj+di)%jumps.length];if(!add.some(function(x){return x.ex===je.id}))add.push({ex:je.id,sets:3,reps:'5',rest:90,note:'Explosive. Stop while every jump is still sharp.'})}items=add.concat(items)}
+      if(!lowerDay&&(o.sport==='combat'||o.sport==='run'||o.sport==='field')){var cc=['rower','bike','treadmill','jog'].filter(function(id){return EX[id]&&EX[id].eq.every(function(q){return kitv[q]})})[0];if(cc)items.push({ex:cc,sets:1,reps:o.sport==='combat'?'480':'600',rest:0,note:o.sport==='combat'?'Hard rounds: 30 s fast, 30 s easy':'Steady pace, conversation effort'})}
+    }
     if(o.goal==='fatloss'){var c=['treadmill','bike','rower','jog'].filter(function(id){return EX[id]&&EX[id].eq.every(function(q){return kitv[q]})})[0];if(c)items.push({ex:c,sets:1,reps:'600',rest:0,note:'Steady pace'})}
     return {name:d[0],items:items};
   });
@@ -622,6 +632,7 @@ function vBuilder(){
   var h=head('Routine builder',{back:true});
   h+='<p class="dim sm" style="margin:0 0 4px">Answer five quick questions and Gymnify builds your routines and sets your week. You can edit everything afterwards.</p>';
   h+='<div class="card"><div class="lab">Goal</div>'+optChips('goal',GOALS.map(function(g){return [g[0],g[1]]}),o.goal,'bset');
+  if(o.goal==='athlete')h+='<div class="lab" style="margin-top:14px">Your sport</div>'+optChips('sport',SPORTS,o.sport,'bset');
   h+='<div class="lab" style="margin-top:14px">Experience</div>'+optChips('exp',EXPS.map(function(g){return [g[0],g[1]]}),o.exp,'bset');
   h+='<div class="lab" style="margin-top:14px">Days per week</div>'+optChips('days',[[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6']],o.days,'bset');
   h+='<div class="lab" style="margin-top:14px">Time per session</div>'+optChips('mins',[[30,'30 min'],[45,'45 min'],[60,'60 min'],[75,'75 min']],o.mins,'bset');
@@ -634,7 +645,7 @@ function vBuilder(){
 
 /* ---------- first-run setup ---------- */
 var SU_STEPS=['welcome','goal','exp','days','where','theme','account','done'];
-function suProfile(){S.settings.profile=Object.assign({goal:'muscle',exp:'beginner',days:3,mins:60,where:'gym'},S.settings.profile||{});return S.settings.profile}
+function suProfile(){S.settings.profile=Object.assign({goal:'muscle',sport:'other',exp:'beginner',days:3,mins:60,where:'gym'},S.settings.profile||{});return S.settings.profile}
 function optCards(k,list,cur){return list.map(function(x){return '<button class="card'+(cur===x[0]?' hl':'')+'" style="width:100%;text-align:left;margin:8px 0" data-act="su" data-k="'+k+'" data-v="'+x[0]+'"><b>'+esc(x[1])+'</b><div class="sm dim">'+esc(x[2])+'</div></button>'}).join('')}
 function vSetup(){
   var st=ui.setup||(ui.setup={step:0}),step=SU_STEPS[st.step],p=suProfile(),h='';
@@ -646,7 +657,7 @@ function vSetup(){
   }else{
     var title={goal:'What is your main goal?',exp:'How much training experience do you have?',days:'How often do you want to train?',where:'Where do you train?',theme:'Pick your look',account:'Save your workouts (optional)',done:'You are all set'}[step];
     h+='<h2 style="margin:22px 0 4px">'+title+'</h2>';
-    if(step==='goal')h+=optCards('goal',GOALS,p.goal);
+    if(step==='goal'){h+=optCards('goal',GOALS,p.goal);if(p.goal==='athlete')h+='<div class="card"><div class="lab">Your sport</div>'+optChips('sport',SPORTS,p.sport,'su')+'<p class="xs faint" style="margin:10px 0 0">This adds jumping and power work to your lower-body days, and conditioning where it suits your sport.</p></div>'}
     if(step==='exp')h+=optCards('exp',EXPS,p.exp);
     if(step==='days'){h+='<div class="card"><div class="lab">Days per week</div>'+optChips('days',[[2,'2'],[3,'3'],[4,'4'],[5,'5'],[6,'6']],p.days,'su')+'<div class="lab" style="margin-top:14px">Time per session</div>'+optChips('mins',[[30,'30 min'],[45,'45 min'],[60,'60 min'],[75,'75 min']],p.mins,'su')+'</div>'}
     if(step==='where'){
@@ -1134,6 +1145,27 @@ function parseRoutineText(text,unit){
   items.forEach(function(i){var m=matchEx(i.raw.replace(/\s*\(?(?:barbell|dumbbell|cable|machine)\)?\s*$/i,function(x){return ' '+x.trim()}));i.ex=m.id;i.sure=!!m.sure;delete i._n;delete i._w});
   return {kind:'routine',name:name,items:items};
 }
+var TESS='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',tessP=null;
+function loadTess(){
+  if(window.Tesseract)return Promise.resolve();
+  if(tessP)return tessP;
+  tessP=new Promise(function(ok,no){var s=document.createElement('script');s.src=TESS;s.onload=ok;s.onerror=function(){tessP=null;no(new Error('load'))};document.head.appendChild(s)});
+  return tessP;
+}
+function impStatus(t){var el=$('#imp-status');if(el)el.textContent=t}
+function ocrImage(file){
+  impStatus('Loading the text reader (first time only, needs internet)…');
+  loadTess().then(function(){
+    impStatus('Reading your screenshot on this device…');
+    return window.Tesseract.recognize(file,'eng',{logger:function(m){if(m.status==='recognizing text')impStatus('Reading your screenshot… '+Math.round((m.progress||0)*100)+'%')}});
+  }).then(function(res){
+    var tx=((res&&res.data&&res.data.text)||'').replace(/[|]/g,'I').trim();
+    if(!tx){impStatus('No text found. Try a sharper, closer screenshot.');return}
+    var un=($('#imp-unit')||{}).value||'kg',pr=parseAny(tx,un);
+    ui.imp={text:tx,unit:un,parsed:pr};render();
+    toast(pr?'Check the result below, then save':'Text read. Fix any mistakes, then tap Read it');
+  }).catch(function(){impStatus('Could not read that screenshot. Check your connection, or type or paste the workout instead.')});
+}
 function parseAny(text,unit){
   var t=text.trim();if(!t)return null;
   if(t.charAt(0)==='{'){try{var j=JSON.parse(t);if(j&&j.v&&j.routines)return {kind:'backup',data:j}}catch(e){}}
@@ -1145,7 +1177,7 @@ function exOptions(sel){return '<option value="">New custom exercise</option>'+E
 function vImport(){
   var h=head('Import',{back:true}),im=ui.imp;
   if(!im||!im.parsed){
-    h+='<div class="card"><p class="sm dim" style="margin:0 0 10px">Paste anything here: a workout list typed out ("Bench Press 5x5 80kg"), text copied from a screenshot, a coach\'s programme, a Strong or Hevy history CSV, or a backup from this app. You\'ll check everything before it\'s saved.</p><textarea id="imp-text" placeholder="Upper Body&#10;Bench Press 4x8 60kg&#10;Incline Dumbbell Press 3x10&#10;Lat Pulldown 3 x 12">'+esc(im&&im.text||'')+'</textarea><div class="row wrap" style="margin-top:10px"><label class="row sm dim" style="gap:6px">Weights in <select id="imp-unit" style="width:auto"><option value="kg">kg</option><option value="lb"'+(im&&im.unit==='lb'?' selected':'')+'>lb</option></select></label><span class="sp"></span><label class="btn ghost sm" style="display:inline-block">Choose a CSV file<input type="file" accept=".csv,.txt,.json,text/*" data-act="impfile" hidden></label><button class="btn" data-act="impparse">Read it</button></div></div>';
+    h+='<div class="card"><p class="sm dim" style="margin:0 0 10px">Paste anything here: a workout list typed out ("Bench Press 5x5 80kg"), text copied from a screenshot, a coach\'s programme, a Strong or Hevy history CSV, or a backup from this app. You\'ll check everything before it\'s saved.</p><textarea id="imp-text" placeholder="Upper Body&#10;Bench Press 4x8 60kg&#10;Incline Dumbbell Press 3x10&#10;Lat Pulldown 3 x 12">'+esc(im&&im.text||'')+'</textarea><div class="row wrap" style="margin-top:10px"><label class="row sm dim" style="gap:6px">Weights in <select id="imp-unit" style="width:auto"><option value="kg">kg</option><option value="lb"'+(im&&im.unit==='lb'?' selected':'')+'>lb</option></select></label><span class="sp"></span><label class="btn ghost sm" style="display:inline-block">Read a screenshot<input type="file" accept="image/*" data-act="impimg" hidden></label><label class="btn ghost sm" style="display:inline-block">Choose a CSV file<input type="file" accept=".csv,.txt,.json,text/*" data-act="impfile" hidden></label><button class="btn" data-act="impparse">Read it</button></div><div id="imp-status" class="xs faint" style="margin-top:8px"></div></div>';
     h+='<div class="card sm dim"><b style="color:var(--text)">Copying from a screenshot on iPhone:</b> open the screenshot, press and hold on the text until it highlights, tap Copy, then paste it above. That is far more accurate than reading the picture.</div>';
     return h;
   }
@@ -1253,7 +1285,7 @@ function exportCSV(){
 }
 function privacySheet(){
   sheet('<h2>Privacy and data</h2>'+
-  '<div class="card"><b>On your device</b><p class="sm dim" style="margin:6px 0 0">Your workouts, routines, body weight, measurements and settings are stored in this browser on this device. Progress photos never leave the device.</p></div>'+
+  '<div class="card"><b>On your device</b><p class="sm dim" style="margin:6px 0 0">Your workouts, routines, body weight, measurements and settings are stored in this browser on this device. Progress photos never leave the device. If you import from a screenshot, the text is read on your device; the reader is downloaded once and the image is never uploaded.</p></div>'+
   '<div class="card"><b>If you make an account</b><p class="sm dim" style="margin:6px 0 0">Your workouts, routines, body weight, measurements and settings are copied to a private database so they sync between your devices. Only you can read your copy. Photos are not uploaded. Your email address is used only to sign you in.</p></div>'+
   '<div class="card"><b>What we do not do</b><p class="sm dim" style="margin:6px 0 0">No ads, no analytics, no tracking, no selling or sharing of your data.</p></div>'+
   '<div class="card"><b>Your control</b><p class="sm dim" style="margin:6px 0 0">Export everything as CSV or a backup any time. Delete all gym data in Settings; if you are signed in, your synced copy is cleared at the next sync. To remove your account completely, ask the person who gave you the link.</p></div>'+
@@ -1396,6 +1428,7 @@ document.addEventListener('change',function(ev){
   var el=ev.target;
   if(el.dataset.act==='photofile'&&el.files&&el.files[0]){
     shrink(el.files[0],1100).then(function(b){return dbPut({id:uid(),date:today(),blob:b})}).then(function(){toast('Photo saved on this device');loadPhotos()}).catch(function(){toast('Could not save that photo')});el.value='';return}
+  if(el.dataset.act==='impimg'&&el.files&&el.files[0]){ocrImage(el.files[0]);el.value='';return}
   if(el.dataset.act==='impfile'&&el.files&&el.files[0]){
     var fr=new FileReader();fr.onload=function(){var tx=String(fr.result),un=($('#imp-unit')||{}).value||'kg';var pr=parseAny(tx,un);ui.imp={text:tx,unit:un,parsed:pr};if(!pr)toast('Could not read that file');render()};fr.readAsText(el.files[0]);el.value='';return}
   if(el.dataset.plan!==undefined){S.plan[el.dataset.plan]=el.value;save();return}

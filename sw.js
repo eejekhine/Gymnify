@@ -1,5 +1,5 @@
 // Gymnify service worker: opens offline, but always fetches the newest version when online.
-const CACHE = 'gymnify-v4';
+const CACHE = 'gymnify-v5';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {

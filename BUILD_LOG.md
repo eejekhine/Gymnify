@@ -11,6 +11,8 @@ Newest first. Each entry: what changed, why, and what is next.
 - **Later:** exercise demos, supersets, deload weeks, light theme, friends, charts polish
 
 ## 2026-11-03
+- M6: new goal "Perform in my sport" in setup and the builder, with a sport choice (basketball/volleyball, football/rugby/hockey, combat, running, other). Lower-body days get jump and power work (beginners get the easier jumps only; basketball gets two), other sports get a conditioning finisher, and lifts use strength-style reps and rests.
+- M6: import from screenshots. Workouts > Import > Read a screenshot reads the text on the device (Tesseract.js, downloaded once from a CDN; the image is never uploaded), fills the box and parses it. The result is checked before saving, and OCR mistakes can be edited in the text box. Needs internet the first time. Tested with a generated screenshot (4 of 4 exercises matched).
 - M5: sync now merges instead of overwriting. Workouts, routines, body weight, measurements and custom exercises from two devices are combined by id/date; deletions travel as tombstones (kept 120 days) so a deleted routine does not come back; Delete all data also clears the other device. A device with nothing on it takes the account copy. Where the same routine differs, the more recently saved copy wins. The pre-merge local copy is still kept under `gym.v1.backup`.
 - M5: automated tests (`npm test`, 18 checks: first run, merge rules, kg/lb, CSV, setup wizard) and a GitHub Actions workflow that runs them on every push.
 - Decision: example programmes stay optional; email confirmation to be switched off in the shared Supabase project so testers sign up in one step.
