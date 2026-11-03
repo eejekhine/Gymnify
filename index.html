@@ -512,6 +512,7 @@ function pull(cb){
         S=Object.assign(defaults(),merged);
         S.active=keepActive?a:(inc.active||null);
         registerCustom(S.customEx);
+        if(!S.settings.setupDone&&(S.sessions.length||S.routines.length||S.weights.length))S.settings.setupDone=true;
         if(needPush)S.updated=Date.now();
         try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
         sync.state='ok';sync.msg=needPush?'Combined with your other device':'Updated from your other device';
