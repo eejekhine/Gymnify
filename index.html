@@ -259,6 +259,7 @@ function uid(){return Math.random().toString(36).slice(2,8)+Date.now().toString(
 function ymd(d){return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())}
 function today(){return ymd(new Date())}
 function pdate(s){var p=String(s).slice(0,10).split('-');return new Date(+p[0],+p[1]-1,+p[2])}
+function addDays(d,n){return new Date(d.getFullYear(),d.getMonth(),d.getDate()+n)}
 function monday(d){var x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
 var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function nice(s){var d=pdate(s);return DOW[d.getDay()]+' '+d.getDate()+' '+MON[d.getMonth()]}
@@ -357,6 +358,7 @@ function hintFor(entry){
   var w=Math.max.apply(null,ws.map(function(s){return num(s.w)}));
   var allHit=top&&ws.every(function(s){return num(s.r)>=top});
   if(e.type==='w'&&w>0){
+    if(deloadActive()){var dw=deloadWeight(w);return {w:dw,r:low||top,text:'Deload: '+dW(dw)+' '+UL()+' × '+(low||top)}}
     if(allHit&&incFor(entry.ex)>0){var inc=incFor(entry.ex),nw=w+inc;if(isLb()){nw=Math.round((toU(w)+(inc>=5?10:5))/5)*5*LB;if(nw<=w)nw=w+5*LB}return {w:nw,r:low||top,text:'Try '+dW(nw)+' '+UL()+' × '+(low||top)}}
     var r=Math.min(...ws.map(function(s){return num(s.r)}));
     return {w:w,r:r+1,text:'Aim for '+dW(w)+' '+UL()+' × '+(r+1)};
@@ -402,12 +404,70 @@ function checkPR(entry,idx){
 }
 
 /* ---------- build workout entries ---------- */
+
+/* ---------- supersets: consecutive exercises that share an ss id alternate set by set ---------- */
+function ssRuns(list){
+  /* returns [{ss, idx:[...]}] for runs of 2+ neighbours with the same ss id, labelled A, B, C… */
+  var runs=[],i=0,letter=0;
+  while(i<list.length){
+    var id=list[i].ss;
+    if(id){var j=i;while(j+1<list.length&&list[j+1].ss===id)j++;if(j>i){var idx=[];for(var q=i;q<=j;q++)idx.push(q);runs.push({ss:id,idx:idx,label:String.fromCharCode(65+letter++)})}i=j+1}else i++;
+  }
+  return runs;
+}
+function ssInfo(list,i){
+  var runs=ssRuns(list);
+  for(var r=0;r<runs.length;r++){var p=runs[r].idx.indexOf(i);if(p>=0)return {label:runs[r].label,pos:p+1,size:runs[r].idx.length,idx:runs[r].idx}}
+  return null;
+}
+function ssLink(list,i){
+  /* link exercise i with the next one; if i is already in a group, toggle it out */
+  var inf=ssInfo(list,i);
+  if(inf){var id=list[i].ss;list.forEach(function(x){if(x.ss===id)x.ss=''});return false}
+  if(i+1>=list.length)return null;
+  var id2=list[i+1].ss||list[i].ss||('s'+Date.now().toString(36)+i);
+  list[i].ss=id2;list[i+1].ss=id2;
+  /* if the next one was in another group, keep it simple: it joins this one */
+  return true;
+}
+
+/* ---------- deload weeks ---------- */
+function mondayKey(){return ymd(monday(new Date()))}
+function deloadEvery(){var v=S.settings.deloadEvery;return v===undefined||v===null||v===''?5:Math.max(0,Math.round(num(v)))}
+function deloadActive(){return !!(S.deload&&S.deload.start===mondayKey()&&!S.deload.ended)}
+function trainedWeeksInARow(){
+  /* consecutive training weeks (at least 2 workouts, or the weekly goal if lower) ending last week or this week, after any previous deload */
+  var need=Math.max(1,Math.min(2,S.settings.weekGoal||2)),w=monday(new Date()),k=0,since=S.deload&&S.deload.start?S.deload.start:'',first=true;
+  for(var i=0;i<60;i++){
+    var a=w.getTime(),b=addDays(w,7).getTime(),key=ymd(w);
+    if(since&&key<=since)break;
+    var c=S.sessions.filter(function(s){var t=pdate(s.date).getTime();return t>=a&&t<b}).length;
+    if(c>=need)k++;else if(!first)break;
+    first=false;w=addDays(w,-7);
+  }
+  return k;
+}
+function deloadDue(){
+  var ev=deloadEvery();if(!ev||deloadActive())return false;
+  if(S.deloadSnooze&&Date.now()<S.deloadSnooze)return false;
+  return trainedWeeksInARow()>=ev;
+}
+function deloadSets(n){return n<=1?n:Math.max(2,Math.round(n*0.6))}
+function deloadWeight(kg){
+  if(isLb())return Math.round(toU(kg)*0.9/5)*5*LB;
+  return Math.round(kg*0.9/2.5)*2.5;
+}
+function deloadCard(){
+  if(deloadActive())return '<div class="card" style="border-color:var(--accent2)"><b>Deload week</b><p class="sm dim" style="margin:6px 0 10px">Lighter on purpose: about 40% fewer sets and weights about 10% lower than last time. Recovery is when you get stronger.</p><button class="btn ghost sm" data-act="deloadend">End deload early</button></div>';
+  if(deloadDue())return '<div class="card" style="border-color:var(--accent2)"><b>Time for a lighter week?</b><p class="sm dim" style="margin:6px 0 10px">You have trained '+trainedWeeksInARow()+' weeks in a row. A deload week keeps the same exercises with about 40% fewer sets and weights about 10% lower, then you come back fresher.</p><div class="row wrap"><button class="btn sm" data-act="deloadgo">Start deload week</button><button class="btn ghost sm" data-act="deloadsnooze">Not now</button></div></div>';
+  return '';
+}
 function mkEntry(item,mode){
   var id=resolve(item.ex,mode)||item.ex;
   var e=EX[id]||{type:'w'};
-  var sets=[];var n=Math.max(1,item.sets||1);
+  var sets=[];var n=Math.max(1,item.sets||1);if(deloadActive())n=deloadSets(n);
   for(var i=0;i<n;i++)sets.push({w:'',r:'',rpe:'',d:false,t:'n'});
-  return {k:uid(),o:item.ex,ex:id,type:e.type,reps:item.reps||'',rest:item.rest||(e.type==='t'||e.muscle==='Mobility'?0:S.settings.rest),note:item.note||'',sets:sets};
+  return {k:uid(),o:item.ex,ex:id,type:e.type,reps:item.reps||'',rest:item.rest||(e.type==='t'||e.muscle==='Mobility'?0:S.settings.rest),note:item.note||'',ss:item.ss||'',sets:sets};
 }
 function startRoutine(rid,mode){
   var r=S.routines.filter(function(x){return x.id===rid})[0];if(!r)return;
@@ -802,9 +862,9 @@ function weekStats(){
 function streakWeeks(){
   var goal=S.settings.weekGoal||1,w=monday(new Date()),k=0,first=true;
   for(var i=0;i<104;i++){
-    var a=w.getTime(),b=a+7*864e5,c=S.sessions.filter(function(s){var t=pdate(s.date).getTime();return t>=a&&t<b}).length;
+    var a=w.getTime(),b=addDays(w,7).getTime(),c=S.sessions.filter(function(s){var t=pdate(s.date).getTime();return t>=a&&t<b}).length;
     if(c>=goal)k++;else if(!first)break;
-    first=false;w=new Date(a-7*864e5);
+    first=false;w=addDays(w,-7);
   }
   return k;
 }
@@ -817,6 +877,7 @@ function vToday(){
   var ws=weekStats(),goal=S.settings.weekGoal;
   var h=head('Today',{mode:true,gear:true});
   h+='<p class="dim sm" style="margin:0 0 4px">'+(S.mode==='home'?'Home mode: every workout swaps to exercises you can do with your home kit.':'Gym mode: workouts run as written. Gym closed? Tap Home and the same workout converts.')+'</p>';
+  h+=deloadCard();
   if(plan)h+='<div class="lab" style="margin-top:12px">Planned for '+DOW[wd]+'</div>'+routineCard(plan,true);
   else h+='<div class="card sm dim">Nothing planned for '+DOW[wd]+'. Set a weekly plan in Workouts, or pick one below.</div>';
   if(!S.routines.length)h+='<div class="card" style="margin-top:12px"><b>No routines yet</b><p class="sm dim" style="margin:6px 0 10px">Start an empty workout and add exercises as you go, build your own routine, or import one. You can also add the example programmes.</p><div class="row wrap"><button class="btn sm" data-act="build">Build my routine</button><button class="btn ghost sm" data-act="empty">+ Empty workout</button><button class="btn ghost sm" data-act="newroutine">+ New routine</button><button class="btn ghost sm" data-act="import">Import</button><button class="btn ghost sm" data-act="restorestarters">Add example programmes</button></div></div>';
@@ -845,8 +906,9 @@ function workStats(){
 }
 function entryHtml(e,i){
   var x=EX[e.ex]||{name:e.ex,muscle:'',type:e.type},t=x.type||e.type,hint=hintFor(e);
-  var cols=t==='w'?['KG','REPS']:t==='b'?['+KG','REPS']:['SEC'];
-  var h='<div class="ex"><div class="ex-h"><div class="nm"><b>'+esc(x.name)+'</b>'+(S.active.mode==='home'?' <span class="badge home">HOME</span>':'')+'<div class="sm dim">'+e.sets.length+(e.reps?' × '+esc(e.reps):' sets')+' · '+esc(x.muscle)+'</div>'+(e.o&&e.o!==e.ex?'<div class="swapnote">Swapped in for '+esc(exName(e.o))+'</div>':'')+(e.note?'<div class="sm" style="color:var(--warn);margin-top:2px">'+esc(e.note)+'</div>':'')+'</div><button class="menu" data-act="exmenu" data-i="'+i+'" aria-label="Exercise options">&#8943;</button></div>';
+  var cols=t==='w'?[UL().toUpperCase(),'REPS']:t==='b'?['+'+UL().toUpperCase(),'REPS']:['SEC'];
+  var si=ssInfo(S.active.entries,i);
+  var h='<div class="ex'+(si?' ss':'')+'"'+(si?' style="border-left:4px solid var(--accent2)"':'')+'><div class="ex-h"><div class="nm">'+(si?'<span class="badge home" style="margin-bottom:4px;display:inline-block">SUPERSET '+si.label+si.pos+' of '+si.size+'</span><br>':'')+'<b>'+esc(x.name)+'</b>'+(S.active.mode==='home'?' <span class="badge home">HOME</span>':'')+'<div class="sm dim">'+e.sets.length+(e.reps?' × '+esc(e.reps):' sets')+' · '+esc(x.muscle)+'</div>'+(e.o&&e.o!==e.ex?'<div class="swapnote">Swapped in for '+esc(exName(e.o))+'</div>':'')+(e.note?'<div class="sm" style="color:var(--warn);margin-top:2px">'+esc(e.note)+'</div>':'')+'</div><button class="menu" data-act="exmenu" data-i="'+i+'" aria-label="Exercise options">&#8943;</button></div>';
   if(hint)h+='<button class="hint" data-act="usehint" data-i="'+i+'">&#8599; '+esc(hint.text)+'</button>';
   h+='<table class="sets"><thead><tr><th></th><th>PREV</th>'+cols.map(function(c){return '<th>'+c+'</th>'}).join('')+(S.settings.rpe&&t!=='t'?'<th>RPE</th>':'')+'<th></th></tr></thead><tbody>';
   var wn=0;
@@ -914,7 +976,7 @@ function vRoutineEdit(id){
   h+='<div class="card"><label class="lab">Name</label><input data-rf="name" value="'+esc(r.name)+'"><label class="lab" style="display:block;margin-top:10px">Group</label><input data-rf="tag" value="'+esc(r.tag||'')+'" placeholder="e.g. Hooper"></div>';
   r.items.forEach(function(it,i){
     var x=EX[it.ex]||{name:it.ex,type:'w'},res=resolve(it.ex,S.mode===  'gym'?'home':'gym');
-    h+='<div class="card"><div class="row"><b class="sp">'+esc(x.name)+'</b><button class="btn ghost sm" data-act="ritemup" data-i="'+i+'" aria-label="Move up">&uarr;</button><button class="btn ghost sm" data-act="ritemdn" data-i="'+i+'" aria-label="Move down">&darr;</button><button class="btn crit sm" data-act="ritemrm" data-i="'+i+'" aria-label="Remove">&times;</button></div>';
+    h+='<div class="card"><div class="row"><b class="sp">'+esc(x.name)+'</b>'+(function(){var si=ssInfo(r.items,i);return si?'<span class="badge home">SS '+si.label+si.pos+'</span>':''})()+'<button class="btn ghost sm" data-act="rsslink" data-i="'+i+'" aria-label="Superset with next exercise">'+(ssInfo(r.items,i)?'Unlink':'Superset')+'</button><button class="btn ghost sm" data-act="ritemup" data-i="'+i+'" aria-label="Move up">&uarr;</button><button class="btn ghost sm" data-act="ritemdn" data-i="'+i+'" aria-label="Move down">&darr;</button><button class="btn crit sm" data-act="ritemrm" data-i="'+i+'" aria-label="Remove">&times;</button></div>';
     h+='<div class="grid2" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px"><div><span class="lab">Sets</span><input inputmode="numeric" data-ri="'+i+'" data-f="sets" value="'+esc(it.sets)+'"></div><div><span class="lab">'+(x.type==='t'?'Seconds':'Reps')+'</span><input data-ri="'+i+'" data-f="reps" value="'+esc(it.reps)+'"></div><div><span class="lab">Rest (s)</span><input inputmode="numeric" data-ri="'+i+'" data-f="rest" value="'+esc(it.rest||'')+'" placeholder="'+S.settings.rest+'"></div></div>';
     h+='<input data-ri="'+i+'" data-f="note" value="'+esc(it.note)+'" placeholder="Note (optional)" style="margin-top:8px">';
     if(res&&res!==it.ex)h+='<div class="swapnote" style="margin-top:6px">'+(S.mode==='gym'?'At home':'At the gym')+': '+esc(exName(res))+'</div>';
@@ -968,7 +1030,7 @@ function newExSheet(){
 /* ---------- Progress ---------- */
 function weeklyVolume(n){
   var m=monday(new Date()).getTime(),vals=[],labels=[];
-  for(var i=n-1;i>=0;i--){var a=m-i*7*864e5,b=a+7*864e5,v=0;S.sessions.forEach(function(s){var t=pdate(s.date).getTime();if(t>=a&&t<b)v+=sessionStats(s).vol});vals.push(Math.round(v));var d=new Date(a);labels.push(d.getDate()+' '+MON[d.getMonth()])}
+  for(var i=n-1;i>=0;i--){var d0=addDays(new Date(m),-7*i),a=d0.getTime(),b=addDays(d0,7).getTime(),v=0;S.sessions.forEach(function(s){var t=pdate(s.date).getTime();if(t>=a&&t<b)v+=sessionStats(s).vol});vals.push(Math.round(v));var d=new Date(a);labels.push(d.getDate()+' '+MON[d.getMonth()])}
   return {vals:vals,labels:labels};
 }
 function muscleSets(daysBack){
@@ -1066,7 +1128,7 @@ function compareSheet(){
 /* ---------- Settings ---------- */
 function vSettings(){
   var s=S.settings,h=head('Settings',{back:true});
-  h+='<div class="card"><h3>Training</h3><div class="grid2" style="margin-top:10px"><div><span class="lab">Default rest (s)</span><input data-set="rest" inputmode="numeric" value="'+s.rest+'"></div><div><span class="lab">Workouts per week goal</span><input data-set="weekGoal" inputmode="numeric" value="'+s.weekGoal+'"></div></div><div style="margin-top:12px"><span class="lab">Units</span><div class="seg" style="margin-top:6px" role="group" aria-label="Weight units"><button data-act="unit" data-u="kg" class="'+(!isLb()?'on':'')+'" aria-pressed="'+(!isLb())+'">kg</button><button data-act="unit" data-u="lb" class="'+(isLb()?'on':'')+'" aria-pressed="'+(isLb())+'">lb</button></div></div><label class="row sm" style="gap:8px;margin-top:12px"><input type="checkbox" data-set="rpe" '+(s.rpe?'checked':'')+' style="width:auto"> Show an RPE column in workouts</label></div>';
+  h+='<div class="card"><h3>Training</h3><div class="grid2" style="margin-top:10px"><div><span class="lab">Default rest (s)</span><input data-set="rest" inputmode="numeric" value="'+s.rest+'"></div><div><span class="lab">Workouts per week goal</span><input data-set="weekGoal" inputmode="numeric" value="'+s.weekGoal+'"></div></div><div style="margin-top:12px"><span class="lab">Suggest a lighter (deload) week after this many weeks in a row (0 = never)</span><input data-set="deloadEvery" inputmode="numeric" value="'+deloadEvery()+'" style="margin-top:6px"></div><div style="margin-top:12px"><span class="lab">Units</span><div class="seg" style="margin-top:6px" role="group" aria-label="Weight units"><button data-act="unit" data-u="kg" class="'+(!isLb()?'on':'')+'" aria-pressed="'+(!isLb())+'">kg</button><button data-act="unit" data-u="lb" class="'+(isLb()?'on':'')+'" aria-pressed="'+(isLb())+'">lb</button></div></div><label class="row sm" style="gap:8px;margin-top:12px"><input type="checkbox" data-set="rpe" '+(s.rpe?'checked':'')+' style="width:auto"> Show an RPE column in workouts</label></div>';
   h+='<div class="card"><h3>Equipment</h3><p class="sm dim" style="margin:6px 0 10px">Tick what each place has. Exercises needing anything unticked are swapped automatically when you train there.</p><div class="lab">At the gym</div><div class="kit" style="margin:6px 0 12px">'+EQUIP.map(function(q){return '<button class="chip '+(s.kitGym[q[0]]?'on':'')+'" data-act="kit" data-w="Gym" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div><div class="lab">At home</div><div class="kit" style="margin-top:6px">'+EQUIP.map(function(q){return '<button class="chip '+(s.kitHome[q[0]]?'on':'')+'" data-act="kit" data-w="Home" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div></div>';
   h+='<div class="card"><h3>Appearance</h3>'+themeTiles()+'</div>';
   h+='<div class="card"><h3>Setup</h3><p class="sm dim" style="margin:6px 0 10px">Build a plan for your goal, or run the first-time setup again.</p><div class="row wrap"><button class="btn sm" data-act="build">Routine builder</button><button class="btn ghost sm" data-act="resetup">Run setup again</button></div></div>';
@@ -1247,7 +1309,7 @@ function doSwap(i,id){
 }
 function exMenu(i){
   var e=S.active.entries[i];
-  sheet('<h2>'+esc(exName(e.ex))+'</h2><ul class="list">'+[['swap','Swap exercise'],['plates','Plate calculator'],['exnote','Add or edit note'],['resttime','Change rest time'],['exup','Move up'],['exdn','Move down'],['exrm','Remove from workout']].map(function(a){return '<li data-act="'+a[0]+'" data-i="'+i+'" style="cursor:pointer"><b>'+a[1]+'</b></li>'}).join('')+'</ul>');
+  sheet('<h2>'+esc(exName(e.ex))+'</h2><ul class="list">'+[['sslink',(ssInfo(S.active.entries,i)?'Remove from superset':'Superset with next exercise')],['swap','Swap exercise'],['plates','Plate calculator'],['exnote','Add or edit note'],['resttime','Change rest time'],['exup','Move up'],['exdn','Move down'],['exrm','Remove from workout']].map(function(a){return '<li data-act="'+a[0]+'" data-i="'+i+'" style="cursor:pointer"><b>'+a[1]+'</b></li>'}).join('')+'</ul>');
 }
 function platesSheet(i){
   var e=S.active.entries[i],cur=toU(num((e.sets.filter(function(s){return s.t!=='w'&&s.w})[0]||{}).w)||60);
@@ -1310,7 +1372,7 @@ document.addEventListener('click',function(ev){
   case 'goto':go(el.dataset.t);break;
   case 'back':back();break;
   case 'rview':{var rr=rById(el.dataset.r);if(!rr)break;var nsets=rr.items.reduce(function(a,i){return a+i.sets},0);
-    sheet('<h2>'+esc(rr.name)+'</h2><p class="sm dim" style="margin:4px 0 10px">'+rr.items.length+' exercises, '+nsets+' sets</p>'+rr.items.map(function(it){var e=EX[it.ex];return '<div class="row" style="padding:7px 0;border-bottom:1px solid var(--border)"><span class="sp">'+esc(e?e.name:it.ex)+'</span><span class="dim mono sm">'+(e&&e.type==='t'?it.reps+'s':it.sets+' x '+it.reps)+'</span></div>'}).join('')+'<div class="row" style="margin-top:14px"><button class="btn sp" data-act="start" data-r="'+rr.id+'">Start</button><button class="btn ghost" data-act="redit" data-r="'+rr.id+'">Edit</button></div>');break}
+    sheet('<h2>'+esc(rr.name)+'</h2><p class="sm dim" style="margin:4px 0 10px">'+rr.items.length+' exercises, '+nsets+' sets</p>'+rr.items.map(function(it,ix){var e=EX[it.ex],si=ssInfo(rr.items,ix);return '<div class="row" style="padding:7px 0;border-bottom:1px solid var(--border)"><span class="sp">'+(si?'<span class="badge home" style="margin-right:6px">'+si.label+si.pos+'</span>':'')+esc(e?e.name:it.ex)+'</span><span class="dim mono sm">'+(e&&e.type==='t'?it.reps+'s':it.sets+' x '+it.reps)+'</span></div>'}).join('')+'<div class="row" style="margin-top:14px"><button class="btn sp" data-act="start" data-r="'+rr.id+'">Start</button><button class="btn ghost" data-act="redit" data-r="'+rr.id+'">Edit</button></div>');break}
   case 'theme':S.settings.theme=el.dataset.t;save();applyTheme();render();break;
   case 'accent':S.settings.accent=el.dataset.c||'';save();applyTheme();render();break;
   case 'build':ui.build=buildDefaults();go('work',{k:'builder'});break;
@@ -1340,7 +1402,10 @@ document.addEventListener('click',function(ev){
       if(st.r===''&&!(t==='w'&&num(st.w)>0)){toast('Enter reps first');break}
       st.d=true;
       if(checkPR(e,s)){st.pr=true;toast('New PR on '+exName(e.ex)+'!',3200)}else delete st.pr;
-      if(e.rest&&st.t!=='w'||(e.rest&&s<e.sets.length-1)){startRest(st.t==='w'?Math.min(e.rest,60):e.rest)}
+      var sinf=ssInfo(act.entries,i),nextInRound=null;
+      if(sinf&&st.t!=='w'){for(var qq=sinf.idx.indexOf(i)+1;qq<sinf.idx.length;qq++){var nx=act.entries[sinf.idx[qq]];if(nx.sets[s]&&!nx.sets[s].d){nextInRound=nx;break}}}
+      if(nextInRound){toast('Superset: now '+exName(nextInRound.ex),2200)}
+      else if(e.rest&&st.t!=='w'||(e.rest&&s<e.sets.length-1)){startRest(st.t==='w'?Math.min(e.rest,60):e.rest)}
     }else{st.d=false;delete st.pr}
     save();ui.keepScroll=true;render();break}
   case 'addset':{var e1=act.entries[i],l=e1.sets[e1.sets.length-1]||{};e1.sets.push({w:l.w||'',r:l.r||'',rpe:'',d:false,t:'n'});save();ui.keepScroll=true;render();break}
@@ -1356,6 +1421,11 @@ document.addEventListener('click',function(ev){
   case 'savenote':act.entries[i].note=$('#exn').value.trim();save();closeSheet();ui.keepScroll=true;render();break;
   case 'resttime':{var e4=act.entries[i];sheet('<h2>Rest time</h2><div class="row wrap">'+[0,30,45,60,90,120,150,180,240].map(function(v){return '<button class="chip '+(e4.rest===v?'on':'')+'" data-act="setrest" data-i="'+i+'" data-v="'+v+'">'+(v?mmss(v):'None')+'</button>'}).join('')+'</div>');break}
   case 'setrest':act.entries[i].rest=+el.dataset.v;save();closeSheet();ui.keepScroll=true;render();break;
+  case 'sslink':{var rs=ssLink(act.entries,i);if(rs===null)toast('Add another exercise below first');else toast(rs?'Superset created':'Removed from superset');save();closeSheet();ui.keepScroll=true;render();break}
+  case 'rsslink':{var rr2=rById(nav.sub.id),rs2=ssLink(rr2.items,i);if(rs2===null)toast('Add another exercise below first');else toast(rs2?'Superset created':'Removed from superset');save();ui.keepScroll=true;render();break}
+  case 'deloadgo':S.deload={start:mondayKey()};S.deloadSnooze=0;save();toast('Deload week started');render();break;
+  case 'deloadend':S.deload={start:mondayKey(),ended:true};save();toast('Deload ended');render();break;
+  case 'deloadsnooze':S.deloadSnooze=Date.now()+3*864e5;save();render();break;
   case 'exup':if(i>0){var q=act.entries;var t1=q[i];q[i]=q[i-1];q[i-1]=t1;save();closeSheet();ui.keepScroll=true;render()}break;
   case 'exdn':if(i<act.entries.length-1){var q2=act.entries;var t2=q2[i];q2[i]=q2[i+1];q2[i+1]=t2;save();closeSheet();ui.keepScroll=true;render()}break;
   case 'exrm':act.entries.splice(i,1);save();closeSheet();ui.keepScroll=true;render();break;

@@ -20,7 +20,7 @@ const eq = (name, got, want) => { const ok = JSON.stringify(got) === JSON.string
   await new Promise(r => srv.listen(0, r));
   const port = srv.address().port;
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true, timezoneId: 'Europe/London' });
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   const E = c => p.evaluate(x => EV(x), c);
@@ -64,6 +64,43 @@ const eq = (name, got, want) => { const ok = JSON.stringify(got) === JSON.string
   const lines = fs.readFileSync(tmp, 'utf8').trim().split('\n');
   eq('csv has header plus 3 sets', lines.length, 4);
   eq('csv quotes names with commas and quotes', lines[1].startsWith('2026-11-01,"Test, ""Push""",gym,Bench Press,1,warm-up,60'), true);
+
+  // --- supersets
+  await E("S.active=null;S.routines=[{id:'rs',name:'SS test',items:[{ex:'bench',sets:3,reps:'8',rest:90,note:''},{ex:'cable_row',sets:3,reps:'10',rest:60,note:''},{ex:'squat',sets:3,reps:'5',rest:120,note:''}]}];save()");
+  eq('linking exercise 1 with the next creates a superset', await E("var it=S.routines[0].items;ssLink(it,0);ssRuns(it).map(function(r){return r.idx.join('+')+r.label}).join()"), '0+1A');
+  eq('toggling again removes it', await E("var it=S.routines[0].items;ssLink(it,0);ssRuns(it).length"), 0);
+  eq('last exercise cannot be linked to nothing', await E("ssLink(S.routines[0].items,2)"), null);
+  await E("ssLink(S.routines[0].items,0);startRoutine('rs','gym');nav={tab:'today',sub:{k:'workout'}};save()");
+  eq('superset carries into the workout', await E("S.active.entries.map(function(e){return !!e.ss}).join()"), 'true,true,false');
+  await E("S.active.entries[0].sets[0].w='60';S.active.entries[0].sets[0].r='8'");
+  await E("var ev=document.createElement('button');ev.dataset.act='tick';ev.dataset.i='0';ev.dataset.s='0';document.body.appendChild(ev);ev.click()");
+  await p.waitForTimeout(200);
+  eq('no rest timer between the two superset exercises', await E("S.active.rest"), null);
+  await E("S.active.entries[1].sets[0].w='40';S.active.entries[1].sets[0].r='10'");
+  await E("var ev2=document.createElement('button');ev2.dataset.act='tick';ev2.dataset.i='1';ev2.dataset.s='0';document.body.appendChild(ev2);ev2.click()");
+  await p.waitForTimeout(200);
+  eq('rest starts after the last exercise of the round', (await E("S.active.rest&&S.active.rest.total")), 60);
+  await E("S.active=null;save()");
+
+  // --- deload weeks
+  const week = n => E("(function(){var d=monday(new Date());d.setDate(d.getDate()-7*" + n + ");return ymd(d)})()");
+  let sess = [];
+  for (let n = 1; n <= 5; n++) { const d = await week(n); sess.push({ id: 'dw' + n + 'a', date: d, name: 'x', mode: 'gym', start: 1, end: 2, entries: [{ ex: 'bench', reps: '5', sets: [{ w: '100', r: '5', d: true }, { w: '100', r: '5', d: true }, { w: '100', r: '5', d: true }] }] }); sess.push({ id: 'dw' + n + 'b', date: d, name: 'x', mode: 'gym', start: 3, end: 4, entries: [] }); }
+  await E("S.sessions=" + JSON.stringify(sess) + ";S.deload=null;S.deloadSnooze=0;S.settings.deloadEvery=5;S.settings.weekGoal=3;save()");
+  eq('five training weeks in a row makes a deload due', [await E("trainedWeeksInARow()"), await E("deloadDue()")], [5, true]);
+  await E("S.settings.deloadEvery=0");
+  eq('deload can be turned off', await E("deloadDue()"), false);
+  await E("S.settings.deloadEvery=5;S.deloadSnooze=Date.now()+1e6");
+  eq('not now hides the suggestion', await E("deloadDue()"), false);
+  await E("S.deloadSnooze=0;S.deload={start:mondayKey()}");
+  eq('deload week is active and not suggested again', [await E("deloadActive()"), await E("deloadDue()")], [true, false]);
+  eq('deload cuts 5 sets to 3 and keeps 1', [await E("deloadSets(5)"), await E("deloadSets(1)"), await E("deloadSets(2)")], [3, 1, 2]);
+  eq('deload lowers 100 kg to 90 kg, 225 lb to 205 lb', [await E("deloadWeight(100)"), await E("S.settings.unit='lb';var r=Math.round(toU(deloadWeight(102.058)));S.settings.unit='kg';r")], [90, 205]);
+  await E("S.routines=[{id:'rd',name:'D',items:[{ex:'bench',sets:5,reps:'5',rest:90,note:''}]}];startRoutine('rd','gym')");
+  eq('workout started in a deload week has fewer sets', await E("S.active.entries[0].sets.length"), 3);
+  eq('deload hint suggests the lighter weight', (await E("hintFor(S.active.entries[0])")).text.startsWith('Deload: 90 kg'), true);
+  await E("S.active=null;S.deload={start:mondayKey(),ended:true}");
+  eq('ending a deload early turns it off and restarts the count', [await E("deloadActive()"), await E("trainedWeeksInARow()")], [false, 0]);
 
   // --- wizard
   await b.close();
