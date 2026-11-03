@@ -587,6 +587,7 @@ function vToday(){
   var ws=weekStats(),goal=S.settings.weekGoal;
   var h=head('Today',{mode:true,gear:true});
   h+='<p class="dim sm" style="margin:0 0 4px">'+(S.mode==='home'?'Home mode: every workout swaps to exercises you can do with your home kit.':'Gym mode: workouts run as written. Gym closed? Tap Home and the same workout converts.')+'</p>';
+  if(!S.settings.welcomed&&!S.sessions.length)h+='<div class="card hl"><b>Welcome to Gymnify</b><ul class="sm dim" style="margin:8px 0 10px;padding-left:18px"><li>Tap a routine below to start. Log weight and reps for each set; the rest timer starts when you tick a set.</li><li>Gym closed? Tap <b>Home</b> and the same workout swaps to the kit you have.</li><li>Your data stays on this device. Use Settings to back it up.</li></ul><button class="btn sm" data-act="welcome">Got it</button></div>';
   if(plan)h+='<div class="lab" style="margin-top:12px">Planned for '+DOW[wd]+'</div>'+routineCard(plan,true);
   else h+='<div class="card sm dim">Nothing planned for '+DOW[wd]+'. Set a weekly plan in Workouts, or pick one below.</div>';
   var rec=S.routines.slice().sort(function(a,b){return (S.lastDone[b.id]||'').localeCompare(S.lastDone[a.id]||'')}).filter(function(r){return r.id!==planId}).slice(0,4);
@@ -1034,6 +1035,7 @@ document.addEventListener('click',function(ev){
   case 'tab':go(el.dataset.t);break;
   case 'goto':go(el.dataset.t);break;
   case 'back':back();break;
+  case 'welcome':S.settings.welcomed=true;save();render();break;
   case 'settings':go(nav.tab,{k:'settings'});break;
   case 'closesheet':closeSheet();break;
   case 'start':
@@ -1164,6 +1166,7 @@ try{history.replaceState({gym:1,tab:'today',sub:null},'')}catch(e){}
 if(S.active&&Date.now()-S.active.start>1000*60*60*14){/* stale unfinished workout, keep but don't auto-open */}
 render();
 pull(function(changed){if(changed)render()});
+try{if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js')}catch(e){}
 
 })();
 </script>
