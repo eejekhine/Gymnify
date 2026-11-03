@@ -82,6 +82,12 @@ const eq = (name, got, want) => { const ok = JSON.stringify(got) === JSON.string
   eq('home plan has no barbell lifts', st.routines.some(r => r.items.some(i => ['bench', 'squat', 'deadlift', 'bb_row', 'ohp'].includes(i.ex))), false);
   eq('setup marked done', st.settings.setupDone, true);
 
+  // --- welcome screen import shortcut
+  const p3 = await (await b2.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+  await p3.goto('http://localhost:' + port + '/'); await p3.waitForTimeout(400);
+  await p3.click('[data-act="suimport"]'); await p3.waitForTimeout(300);
+  eq('welcome import shortcut skips setup and opens import', [await p3.evaluate(() => EV("S.settings.setupDone")), (await p3.locator('#app').innerText()).includes('Paste anything here')], [true, true]);
+
   // --- athlete goal
   const pp = await b2.newPage ? null : null;
   const pl = await p2.evaluate(() => EV("genPlan({goal:'athlete',sport:'basketball',exp:'intermediate',days:4,mins:60,where:'gym',shuffle:0}).map(function(d){return [d.name,d.items.map(function(i){return i.ex})]})"));

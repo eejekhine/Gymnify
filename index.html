@@ -654,7 +654,7 @@ function vSetup(){
   if(step==='welcome'){
     h+='<div style="padding:34px 0 10px"><h1>Welcome to Gymnify</h1><p class="dim" style="margin:10px 0 0">A free workout tracker that is quick to use in the gym. Let us set it up for you. It takes about a minute.</p></div>';
     h+='<div class="card"><div class="sm">Log sets and reps with a built-in rest timer</div><div class="sm" style="margin-top:6px">Get a routine built for your goal, or make your own</div><div class="sm" style="margin-top:6px">Your data stays on your device, and an account is optional</div></div>';
-    h+='<div class="row" style="margin:16px 0"><button class="btn sp" data-act="sunext">Let us set up</button></div><button class="btn ghost sm" data-act="sufinish" data-build="0">Skip, start blank</button>';
+    h+='<div class="row" style="margin:16px 0"><button class="btn sp" data-act="sunext">Let us set up</button></div><div class="row wrap"><button class="btn ghost sm" data-act="suimport">Import from another app</button><button class="btn ghost sm" data-act="sufinish" data-build="0">Skip, start blank</button></div><p class="xs faint" style="margin:10px 0 0">Coming from Strong, Hevy or a screenshot? Import your routines or history and skip the questions.</p>';
   }else{
     var title={goal:'What is your main goal?',exp:'How much training experience do you have?',days:'How often do you want to train?',where:'Where do you train?',theme:'Pick your look',account:'Save your workouts (optional)',done:'You are all set'}[step];
     h+='<h2 style="margin:22px 0 4px">'+title+'</h2>';
@@ -1380,6 +1380,7 @@ document.addEventListener('click',function(ev){
   case 'ritemdn':{var r6=rById(nav.sub.id);if(i<r6.items.length-1){var t3=r6.items[i];r6.items[i]=r6.items[i+1];r6.items[i+1]=t3;save();ui.keepScroll=true;render()}break}
   case 'planweek':{var order=[1,2,3,4,5,6,0];sheet('<h2>Weekly plan</h2><p class="sm dim" style="margin:0 0 8px">What Today suggests each day. Leave blank for rest days.</p>'+order.map(function(d){return '<div class="row" style="margin:6px 0"><b style="width:44px">'+DOW[d]+'</b><select data-plan="'+d+'"><option value="">Rest</option>'+S.routines.map(function(r7){return '<option value="'+r7.id+'"'+(S.plan[d]===r7.id?' selected':'')+'>'+esc(r7.name)+'</option>'}).join('')+'</select></div>'}).join('')+'<div class="row" style="margin-top:12px"><button class="btn sp" data-act="closesheet">Done</button></div>');break}
   case 'import':ui.imp=null;go('work',{k:'import'});break;
+  case 'suimport':S.settings.setupDone=true;save();nav={tab:'work',sub:null};ui.imp=null;go('work',{k:'import'});break;
   /* exercises */
   case 'exm':ui.exm=el.dataset.m;render();break;
   case 'exavail':ui.exavail=el.checked;$('#exlist').innerHTML=exListHtml();break;
