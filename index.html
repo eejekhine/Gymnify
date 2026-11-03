@@ -528,7 +528,7 @@ function doAuth(up){
   msg.textContent='One moment…';
   authCall(up?'signup':'token?grant_type=password',{email:em,password:pw}).then(function(r){
     if(r.ok&&r.j.access_token){var a=authFromResp(r.j);a.email=a.email||em;authSet(a);sync.state='local';pull(function(){push();render()});return}
-    if(r.ok&&up){msg.textContent='Account created. Check your email and tap the confirmation link (it may open Klander, that is normal), then come back here and sign in.';return}
+    if(r.ok&&up){msg.textContent='Account created. If you were sent a confirmation email, tap its link, then come back and sign in.';return}
     msg.textContent=(r.j&&(r.j.error_description||r.j.msg||r.j.message))||'That did not work, try again';
   }).catch(function(){msg.textContent='No connection. Try again when you are online.'});
 }
@@ -1254,7 +1254,7 @@ function exportCSV(){
 function privacySheet(){
   sheet('<h2>Privacy and data</h2>'+
   '<div class="card"><b>On your device</b><p class="sm dim" style="margin:6px 0 0">Your workouts, routines, body weight, measurements and settings are stored in this browser on this device. Progress photos never leave the device.</p></div>'+
-  '<div class="card"><b>If you make an account</b><p class="sm dim" style="margin:6px 0 0">Your workouts, routines, body weight, measurements and settings are copied to a private database so they sync between your devices. Only you can read your copy. Photos are not uploaded. Your email address is used to sign in and to send the confirmation email, which may show a different app name.</p></div>'+
+  '<div class="card"><b>If you make an account</b><p class="sm dim" style="margin:6px 0 0">Your workouts, routines, body weight, measurements and settings are copied to a private database so they sync between your devices. Only you can read your copy. Photos are not uploaded. Your email address is used only to sign you in.</p></div>'+
   '<div class="card"><b>What we do not do</b><p class="sm dim" style="margin:6px 0 0">No ads, no analytics, no tracking, no selling or sharing of your data.</p></div>'+
   '<div class="card"><b>Your control</b><p class="sm dim" style="margin:6px 0 0">Export everything as CSV or a backup any time. Delete all gym data in Settings; if you are signed in, your synced copy is cleared at the next sync. To remove your account completely, ask the person who gave you the link.</p></div>'+
   '<div class="row"><button class="btn ghost sp" data-act="closesheet">Close</button></div>');
