@@ -6,7 +6,9 @@ A free, offline-first workout tracker that runs in your browser. No account, no 
 
 ## What it does
 
-- Log sets with weight, reps and a rest timer
+- Log sets with weight, reps and a rest timer that beeps, buzzes and can notify you when rest is over
+- About 240 built-in exercises, plus your own custom ones
+- Estimated calories burned per workout (an estimate, not a measurement; it does not sync to Apple Health or Health Connect)
 - Gym mode and Home mode: tap Home and the same workout converts to the kit you have
 - Build your own routines, or start from the built-in ones
 - Weekly plan and goal streak

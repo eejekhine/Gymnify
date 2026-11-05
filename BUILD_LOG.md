@@ -2,6 +2,15 @@
 
 Newest first. Each entry: what changed, why, and what is next.
 
+## M8 (latest)
+- Rest reminders: when the rest timer ends you get a double beep and a buzz (Android), and a notification saying which set or exercise is next if you have switched apps. Settings > Rest reminders has sound, vibrate and keep-screen-on switches, a notification permission button and a 5-second test. Tapping the notification returns to the app.
+- Honest limit: this is a website. A locked phone can pause it, so the notification may be late or missing; keeping the screen on is the reliable route. On iPhone, add to the Home Screen first. True background alerts would need Web Push through a server (not built; needs a decision because it touches the shared Supabase project).
+- Exercise library grew from about 125 to about 242 (kettlebell, traps, forearms, adductors, more machine, cable, bodyweight and conditioning moves).
+- Custom exercises: the picker has muscle chips and a "Create as a new exercise" button; custom exercises can be edited from their detail page, carry equipment and an optional effort level, and duplicates of existing names are reused rather than doubled.
+- Calories: estimated from time, sets, exercise type and your latest body weight (75 kg assumed if none logged). Shown when a workout is saved, on the last-workout card and as a This-week total. Settings can hide it.
+- Honest limit: Apple Health and Health Connect cannot be written from a website, so nothing syncs there. That would need a native wrapper (for example Capacitor). CSV export is the stop-gap.
+- Service worker cache bumped to gymnify-v9, with a notification-click handler. Tests: 63 passing.
+
 ## Plan
 Done:
 - **M1** Offline support, first-run welcome

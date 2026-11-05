@@ -118,8 +118,8 @@ body:has(.rest){padding-bottom:calc(160px + env(safe-area-inset-bottom,0px))}
 (function(){
 'use strict';
 /* ---------- equipment ---------- */
-var EQUIP=[['barbell','Barbell'],['dumbbell','Dumbbells'],['bench','Bench'],['cable','Cables'],['machine','Machines'],['pullup','Pull-up bar'],['dip','Dip bars'],['band','Bands'],['box','Box or step']];
-var MUSCLES=['Chest','Back','Shoulders','Biceps','Triceps','Quads','Hamstrings','Glutes','Calves','Core','Jump','Cardio','Mobility'];
+var EQUIP=[['barbell','Barbell'],['dumbbell','Dumbbells'],['bench','Bench'],['cable','Cables'],['machine','Machines'],['pullup','Pull-up bar'],['dip','Dip bars'],['band','Bands'],['box','Box or step'],['kettlebell','Kettlebells']];
+var MUSCLES=['Chest','Back','Shoulders','Traps','Biceps','Triceps','Forearms','Quads','Hamstrings','Glutes','Adductors','Calves','Core','Jump','Cardio','Mobility'];
 /* id|name|muscle|equipment|type(w weight, b bodyweight reps, t time)|swap order */
 var EXRAW=[
 'bench|Bench Press|Chest|barbell,bench|w|db_bench,floor_press,pushup',
@@ -234,7 +234,124 @@ var EXRAW=[
 'wgs|World\'s Greatest Stretch|Mobility||b|',
 'inchworm|Inchworm|Mobility||b|',
 'supine_twist|Supine Twist|Mobility||t|',
-'ham_stretch|Lying Hamstring Stretch|Mobility||t|'
+'ham_stretch|Lying Hamstring Stretch|Mobility||t|',
+'decline_bb|Decline Barbell Press|Chest|barbell,bench|w|db_bench,pushup',
+'decline_db|Decline Dumbbell Press|Chest|dumbbell,bench|w|db_bench,pushup',
+'chest_press|Machine Chest Press|Chest|machine|w|db_bench,pushup',
+'low_cable_fly|Low-to-High Cable Fly|Chest|cable|w|cable_fly,band_fly,pushup',
+'high_cable_fly|High-to-Low Cable Fly|Chest|cable|w|cable_fly,band_fly,pushup',
+'svend|Svend Press|Chest|dumbbell|w|floor_press,pushup',
+'incline_pushup|Incline Push-Up|Chest|box|b|pushup',
+'wide_pushup|Wide Push-Up|Chest||b|pushup',
+'archer_pushup|Archer Push-Up|Chest||b|pushup',
+'clap_pushup|Clap Push-Up|Chest||b|pushup',
+'tbar_row|T-Bar Row|Back|barbell|w|bb_row,db_row',
+'pendlay|Pendlay Row|Back|barbell|w|bb_row,db_row',
+'chest_row|Chest-Supported Dumbbell Row|Back|dumbbell,bench|w|db_row,band_row',
+'machine_row|Machine Row|Back|machine|w|cable_row,db_row',
+'one_arm_cable_row|Single-Arm Cable Row|Back|cable|w|cable_row,db_row',
+'close_pulldown|Close-Grip Lat Pulldown|Back|cable|w|lat_pull,band_pulldown',
+'sa_pulldown|Single-Arm Lat Pulldown|Back|cable|w|lat_pull,band_pulldown',
+'straight_pd|Straight-Arm Pulldown|Back|cable|w|band_pulldown,prone_y',
+'chinup|Chin-Up|Back|pullup|b|pullup,band_pulldown,inv_row',
+'neutral_pullup|Neutral-Grip Pull-Up|Back|pullup|b|pullup,inv_row',
+'assisted_pullup|Assisted Pull-Up Machine|Back|machine|w|lat_pull,band_pulldown',
+'trapbar|Trap Bar Deadlift|Back|barbell|w|deadlift,db_rdl',
+'sumo|Sumo Deadlift|Back|barbell|w|deadlift,rdl',
+'rack_pull|Rack Pull|Back|barbell|w|deadlift,rdl',
+'hyper|Back Extension|Back|machine|b|glute_bridge',
+'superman|Superman Hold|Back||t|prone_y',
+'shrug|Dumbbell Shrug|Traps|dumbbell|w|bb_shrug',
+'bb_shrug|Barbell Shrug|Traps|barbell|w|shrug',
+'upright|Upright Row|Traps|barbell|w|lat_raise',
+'arnold|Arnold Press|Shoulders|dumbbell|w|db_press,pike',
+'machine_press|Machine Shoulder Press|Shoulders|machine|w|db_press,pike',
+'push_press|Push Press|Shoulders|barbell|w|ohp,db_press',
+'landmine_press|Landmine Press|Shoulders|barbell|w|db_press,pike',
+'cable_lat|Cable Lateral Raise|Shoulders|cable|w|lat_raise,band_lat',
+'front_raise|Front Raise|Shoulders|dumbbell|w|band_press,pike',
+'rear_pec|Reverse Pec Deck|Shoulders|machine|w|rear_fly,face_pull',
+'kb_press|Kettlebell Press|Shoulders|kettlebell|w|db_press',
+'handstand_hold|Wall Handstand Hold|Shoulders||t|pike',
+'preacher|Preacher Curl|Biceps|barbell,bench|w|bb_curl,db_curl',
+'incline_curl|Incline Dumbbell Curl|Biceps|dumbbell,bench|w|db_curl',
+'cable_curl|Cable Curl|Biceps|cable|w|db_curl,band_curl',
+'conc_curl|Concentration Curl|Biceps|dumbbell|w|db_curl',
+'spider_curl|Spider Curl|Biceps|dumbbell,bench|w|db_curl',
+'skull|Skull Crusher|Triceps|barbell,bench|w|oh_tri,pushdown',
+'rope_pd|Rope Pushdown|Triceps|cable|w|pushdown,band_pushdown',
+'cable_oh|Cable Overhead Extension|Triceps|cable|w|oh_tri,pushdown',
+'close_bench|Close-Grip Bench Press|Triceps|barbell,bench|w|bench,close_pushup',
+'kickback|Tricep Kickback|Triceps|dumbbell|w|close_pushup',
+'diamond_pushup|Diamond Push-Up|Triceps||b|close_pushup',
+'dip_machine|Assisted Dip Machine|Triceps|machine|w|bench_dip',
+'wrist_curl|Wrist Curl|Forearms|dumbbell|w|hammer',
+'rev_curl|Reverse Curl|Forearms|barbell|w|hammer',
+'farmer|Farmer\'s Carry|Forearms|dumbbell|t|',
+'dead_hang|Dead Hang|Forearms|pullup|t|',
+'hack|Hack Squat|Quads|machine|w|leg_press,goblet',
+'leg_ext|Leg Extension|Quads|machine|w|goblet,split_squat,bw_squat',
+'box_squat|Box Squat|Quads|barbell,box|w|squat,goblet',
+'kb_goblet|Kettlebell Goblet Squat|Quads|kettlebell|w|goblet',
+'pistol|Pistol Squat|Quads||b|split_squat',
+'reverse_lunge|Reverse Lunge|Quads|dumbbell|w|bw_lunge',
+'lateral_lunge|Lateral Lunge|Quads|dumbbell|w|bw_lunge',
+'cossack|Cossack Squat|Quads||b|bw_lunge',
+'sissy|Sissy Squat|Quads||b|bw_squat',
+'step_down|Step-Down|Quads|box|b|bw_lunge',
+'good_morning|Good Morning|Hamstrings|barbell|w|rdl,db_rdl',
+'seated_curl|Seated Leg Curl|Hamstrings|machine|w|leg_curl,band_ham',
+'stiff_db|Stiff-Leg Deadlift|Hamstrings|dumbbell|w|db_rdl',
+'kb_swing|Kettlebell Swing|Hamstrings|kettlebell|w|db_rdl,glute_bridge',
+'cable_pullthrough|Cable Pull-Through|Glutes|cable|w|db_rdl,glute_bridge',
+'sl_bridge|Single-Leg Glute Bridge|Glutes||b|glute_bridge',
+'sl_thrust|Single-Leg Hip Thrust|Glutes|bench|b|glute_bridge',
+'frog_pump|Frog Pump|Glutes||b|glute_bridge',
+'fire_hydrant|Fire Hydrant|Glutes||b|donkey',
+'clamshell|Clamshell|Glutes|band|b|side_lying',
+'glute_machine|Glute Kickback Machine|Glutes|machine|w|cable_kick,donkey',
+'adduction|Hip Adduction Machine|Adductors|machine|w|copenhagen',
+'copenhagen|Copenhagen Plank|Adductors|bench|t|',
+'db_calf|Dumbbell Calf Raise|Calves|dumbbell|w|sl_calf',
+'bw_calf|Calf Raise|Calves||b|sl_calf',
+'ab_wheel|Ab Wheel Rollout|Core||b|plank',
+'pallof|Pallof Press|Core|cable|w|plank',
+'woodchop|Cable Woodchop|Core|cable|w|russian',
+'side_plank|Side Plank|Core||t|plank',
+'mtn|Mountain Climbers|Core||t|plank',
+'captain|Captain\'s Chair Leg Raise|Core|dip|b|lying_leg',
+'bicycle|Bicycle Crunch|Core||b|crunch',
+'v_up|V-Up|Core||b|crunch',
+'toes2bar|Toes to Bar|Core|pullup|b|hang_leg',
+'bird_dog|Bird Dog|Core||b|dead_bug',
+'flutter|Flutter Kicks|Core||t|lying_leg',
+'box_jump|Box Jump|Jump|box|b|jump_squat',
+'lat_bound|Lateral Bound|Jump||b|sl_hop',
+'skater|Skater Hop|Jump||b|sl_hop',
+'elliptical|Elliptical|Cardio|machine|t|jog',
+'stair|Stair Climber|Cardio|machine|t|jog',
+'air_bike|Assault Bike|Cardio|machine|t|bike,jog',
+'walk_incline|Incline Walk|Cardio|machine|t|jog',
+'run_outdoor|Outdoor Run|Cardio||t|jog',
+'sprints|Sprint Intervals|Cardio||t|jog',
+'hill_sprints|Hill Sprints|Cardio||t|jog',
+'swim|Swimming|Cardio||t|jog',
+'cycle_out|Cycling (outdoors)|Cardio||t|jog',
+'shadowbox|Shadow Boxing|Cardio||t|jog',
+'heavy_bag|Heavy Bag Rounds|Cardio||t|jog',
+'battle_ropes|Battle Ropes|Cardio||t|jog',
+'sled|Sled Push|Cardio||t|jog',
+'burpees|Burpees|Cardio||b|jog',
+'jacks|Jumping Jacks|Cardio||t|jog',
+'hoops|Basketball Practice|Cardio||t|jog',
+'shoulder_dis|Band Shoulder Dislocates|Mobility|band|b|arm_circles',
+'ankle_mob|Ankle Mobility Rocks|Mobility||b|',
+'quad_stretch|Standing Quad Stretch|Mobility||t|',
+'calf_stretch|Calf Stretch|Mobility||t|',
+'butterfly|Butterfly Stretch|Mobility||t|',
+'thread_needle|Thread the Needle|Mobility||b|cat_cow',
+'neck_stretch|Neck Stretch|Mobility||t|',
+'foam_roll|Foam Rolling|Mobility||t|'
 ];
 var EX={},EXLIST=[];
 EXRAW.forEach(function(r){var p=r.split('|');var o={id:p[0],name:p[1],muscle:p[2],eq:p[3]?p[3].split(','):[],type:p[4],alts:p[5]?p[5].split(','):[],custom:false};EX[o.id]=o;EXLIST.push(o)});
@@ -282,7 +399,7 @@ function kitAll(){var k={};EQUIP.forEach(function(e){k[e[0]]=true});return k}
 function defaults(){
   var home=kitAll();Object.keys(home).forEach(function(k){home[k]=(k==='dumbbell'||k==='band'||k==='box')});
   return {v:1,updated:0,mode:'gym',seeded:true,
-    settings:{unit:'kg',rest:90,rpe:false,weekGoal:3,goalKg:'',theme:'gymnify',accent:'',setupDone:false,kitGym:kitAll(),kitHome:home},
+    settings:{unit:'kg',rest:90,sound:true,vibrate:true,notify:false,keepAwake:true,cal:true,rpe:false,weekGoal:3,goalKg:'',theme:'gymnify',accent:'',setupDone:false,kitGym:kitAll(),kitHome:home},
     routines:[],customEx:[],sessions:[],active:null,plan:{},weights:[],measures:[],lastDone:{},tomb:{}};
 }
 function load(){
@@ -298,7 +415,7 @@ function load(){
   registerCustom(d.customEx);
   return d;
 }
-function registerCustom(list){(list||[]).forEach(function(c){var o={id:c.id,name:c.name,muscle:c.muscle,eq:c.eq||[],type:c.type||'w',alts:c.alts||[],custom:true};EX[o.id]=o;if(EXLIST.indexOf(o)<0&&!EXLIST.some(function(x){return x.id===o.id}))EXLIST.push(o)})}
+function registerCustom(list){(list||[]).forEach(function(c){var o={id:c.id,name:c.name,muscle:c.muscle,eq:c.eq||[],type:c.type||'w',alts:c.alts||[],met:c.met||0,custom:true};EX[o.id]=o;if(EXLIST.indexOf(o)<0&&!EXLIST.some(function(x){return x.id===o.id}))EXLIST.push(o)})}
 var S=load();
 if(!S.settings.setupDone&&((S.sessions&&S.sessions.length)||(S.routines&&S.routines.length)||(S.weights&&S.weights.length)))S.settings.setupDone=true;
 var saveT=null;
@@ -390,6 +507,38 @@ function sessionStats(se){
   var sets=0,vol=0,prs=0;
   se.entries.forEach(function(e){working(e).forEach(function(s){sets++;if(num(s.w)>0)vol+=num(s.w)*num(s.r);if(s.pr)prs++})});
   return {sets:sets,vol:vol,prs:prs,ms:(se.end||0)-(se.start||0)};
+}
+
+/* ---------- calorie estimate ---------- */
+/* An estimate, not a measurement: METs (energy cost tables) x body weight x time. Timed exercises use their own
+   MET; lifting uses a MET that rises with how many sets you pack into the hour. */
+var MET={treadmill:8.3,jog:5,bike:7,air_bike:10,rower:7,elliptical:5,stair:8.8,walk_incline:5.3,run_outdoor:9.8,sprints:12,hill_sprints:12,swim:8,cycle_out:7.5,shadowbox:7.8,heavy_bag:9,battle_ropes:10,sled:8,burpees:10,jacks:8,hoops:6.5,jump_rope:11};
+function bodyKg(){var w=(S.weights||[]).slice().sort(function(a,b){return String(a.d).localeCompare(String(b.d))}).pop();return w&&num(w.kg)>0?num(w.kg):0}
+function metFor(id){var x=EX[id];if(!x)return 0;if(x.met)return x.met;if(MET[id])return MET[id];if(x.type!=='t')return 0;return x.muscle==='Cardio'?7:x.muscle==='Mobility'?2.3:3.5}
+function calEst(se){
+  var kg=bodyKg()||75,ms=Math.min(Math.max(0,(se.end||0)-(se.start||0)),4*3600000);
+  if(!ms)return null;
+  var timedSec=0,kc=0,sets=0;
+  se.entries.forEach(function(e){
+    var m=metFor(e.ex),x=EX[e.ex];
+    working(e).forEach(function(s){
+      if(m&&x&&x.type==='t'){var sec=Math.max(0,num(s.r));timedSec+=sec;kc+=m*kg*sec/3600}
+      else sets++;
+    });
+  });
+  var restH=Math.max(0,ms/1000-timedSec)/3600;
+  if(restH>0){var perH=restH>0?sets/restH:0,mt=sets?Math.min(6,Math.max(3,3+0.12*perH)):2.5;kc+=mt*kg*restH}
+  return {kcal:Math.round(kc),assumed:!bodyKg()};
+}
+function calBlock(se){
+  if(S.settings.cal===false)return '';var c=calEst(se);if(!c||c.kcal<=0)return '';
+  return '<div class="sm" style="margin:2px 0 12px"><b>&asymp; '+c.kcal+' kcal</b> burned <span class="dim">(estimate'+(c.assumed?', assuming 75 kg. Log your body weight in Progress for a better number':'')+')</span></div>';
+}
+function calShort(se){if(S.settings.cal===false)return '';var c=calEst(se);return c&&c.kcal>0?' · &asymp; '+c.kcal+' kcal':''}
+function weekKcal(){
+  var m=monday(new Date()).getTime(),k=0;
+  S.sessions.forEach(function(s){if(pdate(s.date).getTime()>=m){var c=calEst(s);if(c)k+=c.kcal}});
+  return k;
 }
 function checkPR(entry,idx){
   var s=entry.sets[idx];if(s.t==='w')return false;
@@ -884,9 +1033,9 @@ function vToday(){
   var rec=S.routines.slice().sort(function(a,b){return (S.lastDone[b.id]||'').localeCompare(S.lastDone[a.id]||'')}).filter(function(r){return r.id!==planId}).slice(0,4);
   if(rec.length){h+='<div class="lab" style="margin-top:14px">Start another</div>'+rec.map(function(r){return routineCard(r,true)}).join('')}
   h+='<div class="row" style="margin:10px 0"><button class="btn ghost sp" data-act="empty">+ Empty workout</button><button class="btn ghost sp" data-act="goto" data-t="work">All workouts</button></div>';
-  h+='<div class="lab" style="margin-top:14px">This week</div><div class="grid2" style="margin-top:6px"><div class="stat"><b>'+ws.n+' / '+goal+'</b><span class="sm dim">workouts</span></div><div class="stat"><b>'+fmtK(toU(ws.vol))+' '+UL()+'</b><span class="sm dim">volume lifted</span></div><div class="stat"><b>'+ws.sets+'</b><span class="sm dim">working sets</span></div><div class="stat"><b>'+streakWeeks()+' wk</b><span class="sm dim">goal streak</span></div></div>';
+  h+='<div class="lab" style="margin-top:14px">This week</div><div class="grid2" style="margin-top:6px"><div class="stat"><b>'+ws.n+' / '+goal+'</b><span class="sm dim">workouts</span></div><div class="stat"><b>'+fmtK(toU(ws.vol))+' '+UL()+'</b><span class="sm dim">volume lifted</span></div><div class="stat"><b>'+ws.sets+'</b><span class="sm dim">working sets</span></div><div class="stat"><b>'+streakWeeks()+' wk</b><span class="sm dim">goal streak</span></div></div>'+(S.settings.cal!==false&&weekKcal()>0?'<div class="sm dim" style="margin-top:6px">&asymp; '+weekKcal().toLocaleString()+' kcal burned this week (estimate)</div>':'');
   var l=sessionsDesc()[0];
-  if(l){var st=sessionStats(l);h+='<div class="lab" style="margin-top:14px">Last workout</div><div class="card"><b>'+esc(l.name)+'</b> <span class="badge '+(l.mode==='home'?'home':'')+'">'+(l.mode||'gym').toUpperCase()+'</span><div class="sm dim">'+nice(l.date)+' · '+st.sets+' sets · '+fmtK(toU(st.vol))+' '+UL()+(l.end?' · '+dur(l.end-l.start):'')+(st.prs?' · <span class="pr">&#127942; '+st.prs+' PR'+(st.prs>1?'s':'')+'</span>':'')+'</div></div>'}
+  if(l){var st=sessionStats(l);h+='<div class="lab" style="margin-top:14px">Last workout</div><div class="card"><b>'+esc(l.name)+'</b> <span class="badge '+(l.mode==='home'?'home':'')+'">'+(l.mode||'gym').toUpperCase()+'</span><div class="sm dim">'+nice(l.date)+' · '+st.sets+' sets · '+fmtK(toU(st.vol))+' '+UL()+(l.end?' · '+dur(l.end-l.start):'')+calShort(l)+(st.prs?' · <span class="pr">&#127942; '+st.prs+' PR'+(st.prs>1?'s':'')+'</span>':'')+'</div></div>'}
   h+='<p class="sync" style="margin:18px 0"><span id="syncmsg"></span></p>';
   return h;
 }
@@ -925,12 +1074,33 @@ function entryHtml(e,i){
 }
 
 /* ---------- rest timer ---------- */
-var audioCtx=null;
-function beep(){
-  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=880;g.gain.setValueAtTime(.25,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+.6);o.start();o.stop(audioCtx.currentTime+.6)}catch(e){}
-  try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
+var audioCtx=null,restTimer=null;
+function unlockAudio(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume()}catch(e){}}
+document.addEventListener('pointerdown',unlockAudio,{passive:true});
+function tone(freq,at,len){var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.connect(g);g.connect(audioCtx.destination);o.frequency.value=freq;var t0=audioCtx.currentTime+at;g.gain.setValueAtTime(.3,t0);g.gain.exponentialRampToValueAtTime(.001,t0+len);o.start(t0);o.stop(t0+len)}
+function beep(force){
+  if(S.settings.sound!==false||force){try{unlockAudio();tone(880,0,.25);tone(1175,.3,.45)}catch(e){}}
+  if(S.settings.vibrate!==false||force){try{navigator.vibrate&&navigator.vibrate([250,120,250,120,400])}catch(e){}}
 }
-function startRest(sec){if(!S.active||!sec)return;S.active.rest={end:Date.now()+sec*1000,total:sec,fired:false};save();var s=$('#restslot');if(s)s.innerHTML=restHtml();tick()}
+/* Notifications: shown when the rest ends while the app is in the background. A web app cannot run while the phone is
+   locked, so this works best with the app open (the screen stays on during workouts by default). */
+function canNotify(){return 'Notification' in window&&Notification.permission==='granted'}
+function showNote(title,opts){
+  if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+    navigator.serviceWorker.ready.then(function(reg){return reg.showNotification(title,opts)}).catch(function(){try{new Notification(title,opts)}catch(e){}});
+  }else{try{new Notification(title,opts)}catch(e){}}
+}
+function notifyRestOver(r,force){
+  if(!S.settings.notify||!canNotify())return false;
+  if(!force&&!document.hidden)return false;
+  showNote('Rest over. Go!',{body:r&&r.next?'Next: '+r.next:'Time to start your next set.',tag:'gymnify-rest',renotify:true,icon:'icon-192.png',badge:'icon-192.png',vibrate:[250,120,250],data:{url:'./'}});
+  return true;
+}
+function armRest(){
+  clearTimeout(restTimer);var r=S.active&&S.active.rest;if(!r)return;
+  restTimer=setTimeout(tick,Math.max(0,r.end-Date.now())+40);
+}
+function startRest(sec,next){if(!S.active||!sec)return;S.active.rest={end:Date.now()+sec*1000,total:sec,fired:false,next:next||''};save();var s=$('#restslot');if(s)s.innerHTML=restHtml();armRest();tick()}
 function restHtml(){
   var r=S.active&&S.active.rest;if(!r)return '';
   var left=(r.end-Date.now())/1000;
@@ -942,13 +1112,13 @@ function tick(){
   if(a&&a.rest){
     var left=(a.rest.end-Date.now())/1000,t=$('#resttxt'),b=$('#restbar');
     if(t)t.textContent=left>0?mmss(left):'Go!';if(b)b.style.width=Math.max(0,Math.min(100,100*left/a.rest.total))+'%';
-    if(left<=0&&!a.rest.fired){a.rest.fired=true;save();beep();var s=$('#restslot');if(s)s.innerHTML=restHtml()}
+    if(left<=0&&!a.rest.fired){a.rest.fired=true;save();beep();notifyRestOver(a.rest);var s=$('#restslot');if(s)s.innerHTML=restHtml()}
     if(left<-6){a.rest=null;save();var s2=$('#restslot');if(s2)s2.innerHTML=''}
   }
 }
 setInterval(tick,500);
 document.addEventListener('visibilitychange',function(){if(!document.hidden){tick();if(S.active&&nav.sub&&nav.sub.k==='workout')wakeLock()}});
-var wl=null;function wakeLock(){try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(function(l){wl=l}).catch(function(){})}catch(e){}}
+var wl=null;function wakeLock(){if(S.settings.keepAwake===false)return;try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(function(l){wl=l}).catch(function(){})}catch(e){}}
 
 /* ---------- sheets + toast ---------- */
 function sheet(html){closeSheet();var d=document.createElement('div');d.className='sheet-bg';d.id='sheetbg';d.innerHTML='<div class="sheet" role="dialog">'+html+'</div>';d.addEventListener('click',function(e){if(e.target===d)closeSheet()});document.body.appendChild(d)}
@@ -1019,12 +1189,14 @@ function exDetail(id){
   var gym=resolve(id,'gym'),home=resolve(id,'home');
   h+='<div class="lab" style="margin-top:12px">Gym / home</div><div class="sm" style="margin:4px 0">Gym: <b>'+(gym?esc(exName(gym)):'no option')+'</b><br>Home: <b>'+(home?esc(exName(home)):'no option')+'</b></div>';
   if(rows.length){h+='<div class="lab" style="margin-top:12px">Recent</div><ul class="list">'+rows.slice(0,6).map(function(r){return '<li><span class="sm dim" style="width:90px">'+nice(r[0])+'</span><span class="sm mono sp">'+r[1].map(function(s){return e.type==='t'?s.r+'s':(num(s.w)>0?dW(s.w)+'×'+s.r:s.r)}).join('  ')+'</span></li>'}).join('')+'</ul>'}
-  h+='<div class="row" style="margin-top:14px">'+(e.custom?'<button class="btn crit sm" data-act="delex" data-id="'+id+'">Delete</button>':'')+'<span class="sp"></span><button class="btn ghost" data-act="closesheet">Close</button></div>';
+  h+='<div class="row" style="margin-top:14px">'+(e.custom?'<button class="btn crit sm" data-act="delex" data-id="'+id+'">Delete</button> <button class="btn ghost sm" data-act="editex" data-id="'+id+'">Edit</button>':'')+'<span class="sp"></span><button class="btn ghost" data-act="closesheet">Close</button></div>';
   sheet(h);
 }
-function newExSheet(){
-  var h='<h2>Custom exercise</h2><label class="lab">Name</label><input id="cx-name" placeholder="e.g. Landmine Press"><label class="lab" style="display:block;margin-top:10px">Muscle group</label><select id="cx-m">'+MUSCLES.concat(['Other']).map(function(m){return '<option>'+m+'</option>'}).join('')+'</select><label class="lab" style="display:block;margin-top:10px">Type</label><select id="cx-t"><option value="w">Weight × reps</option><option value="b">Bodyweight reps (optional added weight)</option><option value="t">Time (seconds)</option></select><label class="lab" style="display:block;margin-top:10px">Equipment needed</label><div class="kit" id="cx-eq">'+EQUIP.map(function(q){return '<button class="chip" data-act="cxeq" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div><div class="row" style="margin-top:16px"><button class="btn ghost sp" data-act="closesheet">Cancel</button><button class="btn sp" data-act="savecx">Save</button></div>';
-  sheet(h);
+function newExSheet(o){
+  o=o||{};var ed=o.edit&&EX[o.edit]&&EX[o.edit].custom?EX[o.edit]:null;ui.cxRet=o.ret||null;
+  var nm=ed?ed.name:(o.name||''),mu=ed?ed.muscle:'Other',ty=ed?ed.type:'w',eqs=ed?ed.eq:[],met=ed?ed.met||0:0;
+  var h='<h2>'+(ed?'Edit exercise':'Your own exercise')+'</h2><div id="cx-wrap" data-edit="'+(ed?ed.id:'')+'"><label class="lab">Name</label><input id="cx-name" placeholder="e.g. Landmine Press" value="'+esc(nm)+'" maxlength="60"><label class="lab" style="display:block;margin-top:10px">Muscle group</label><select id="cx-m">'+MUSCLES.concat(['Other']).map(function(m){return '<option'+(m===mu?' selected':'')+'>'+m+'</option>'}).join('')+'</select><label class="lab" style="display:block;margin-top:10px">Type</label><select id="cx-t"><option value="w"'+(ty==='w'?' selected':'')+'>Weight × reps</option><option value="b"'+(ty==='b'?' selected':'')+'>Bodyweight reps (optional added weight)</option><option value="t"'+(ty==='t'?' selected':'')+'>Time (seconds)</option></select><label class="lab" style="display:block;margin-top:10px">Equipment needed</label><div class="kit" id="cx-eq">'+EQUIP.map(function(q){return '<button class="chip'+(eqs.indexOf(q[0])>=0?' on':'')+'" data-act="cxeq" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div><label class="lab" style="display:block;margin-top:10px">Effort for calorie estimates (timed exercises)</label><select id="cx-met"><option value="0"'+(!met?' selected':'')+'>Automatic</option><option value="3.5"'+(met===3.5?' selected':'')+'>Light</option><option value="6"'+(met===6?' selected':'')+'>Moderate</option><option value="9"'+(met===9?' selected':'')+'>Hard</option></select></div><div class="row" style="margin-top:16px"><button class="btn ghost sp" data-act="closesheet">Cancel</button><button class="btn sp" data-act="savecx">Save</button></div>';
+  sheet(h);var i=$('#cx-name');if(i&&!ed)i.focus();
 }
 
 /* ---------- Progress ---------- */
@@ -1129,6 +1301,9 @@ function compareSheet(){
 function vSettings(){
   var s=S.settings,h=head('Settings',{back:true});
   h+='<div class="card"><h3>Training</h3><div class="grid2" style="margin-top:10px"><div><span class="lab">Default rest (s)</span><input data-set="rest" inputmode="numeric" value="'+s.rest+'"></div><div><span class="lab">Workouts per week goal</span><input data-set="weekGoal" inputmode="numeric" value="'+s.weekGoal+'"></div></div><div style="margin-top:12px"><span class="lab">Suggest a lighter (deload) week after this many weeks in a row (0 = never)</span><input data-set="deloadEvery" inputmode="numeric" value="'+deloadEvery()+'" style="margin-top:6px"></div><div style="margin-top:12px"><span class="lab">Units</span><div class="seg" style="margin-top:6px" role="group" aria-label="Weight units"><button data-act="unit" data-u="kg" class="'+(!isLb()?'on':'')+'" aria-pressed="'+(!isLb())+'">kg</button><button data-act="unit" data-u="lb" class="'+(isLb()?'on':'')+'" aria-pressed="'+(isLb())+'">lb</button></div></div><label class="row sm" style="gap:8px;margin-top:12px"><input type="checkbox" data-set="rpe" '+(s.rpe?'checked':'')+' style="width:auto"> Show an RPE column in workouts</label></div>';
+  var notifState=!('Notification' in window)?'This browser does not support notifications.':Notification.permission==='granted'?(s.notify?'Notifications are on.':'Permission given. Tick the box to use them.'):Notification.permission==='denied'?'Blocked. Allow notifications for this site in your browser or phone settings, then come back.':'Not turned on yet.';
+  h+='<div class="card"><h3>Rest reminders</h3><p class="sm dim" style="margin:6px 0 10px">When the rest timer ends you get a double beep and a buzz. If you have switched apps, a notification says what is next.</p><label class="row sm" style="gap:8px;margin-top:8px"><input type="checkbox" data-set="sound" '+(s.sound!==false?'checked':'')+' style="width:auto"> Beep when rest ends</label><label class="row sm" style="gap:8px;margin-top:8px"><input type="checkbox" data-set="vibrate" '+(s.vibrate!==false?'checked':'')+' style="width:auto"> Vibrate (Android; iPhones ignore this)</label><label class="row sm" style="gap:8px;margin-top:8px"><input type="checkbox" data-set="keepAwake" '+(s.keepAwake!==false?'checked':'')+' style="width:auto"> Keep the screen on during a workout</label><div class="row sm" style="gap:8px;margin-top:10px;align-items:center"><span class="sp">'+notifState+'</span>'+(('Notification' in window)&&Notification.permission!=='denied'?'<button class="btn sm" data-act="notifyon">'+(s.notify&&canNotify()?'Turn off':'Turn on')+'</button>':'')+'</div><div class="row wrap" style="margin-top:10px"><button class="btn ghost sm" data-act="resttest">Test it (5 seconds)</button></div><p class="xs faint" style="margin:10px 0 0">Honest limit: this is a web app, so a phone that has locked its screen can pause it and the notification may arrive late or not at all. Keeping the screen on (above) is the reliable way. On iPhone, add Gymnify to the home screen first, then turn notifications on.</p></div>';
+  h+='<div class="card"><h3>Calories and health apps</h3><label class="row sm" style="gap:8px;margin-top:8px"><input type="checkbox" data-set="cal" '+(s.cal!==false?'checked':'')+' style="width:auto"> Show calorie estimates</label><p class="sm dim" style="margin:10px 0 0">Calories are an estimate from your workout time, sets, the exercises and your latest body weight ('+(bodyKg()?fmt(Math.round(toU(bodyKg())*10)/10)+' '+UL():'not logged, so 75 kg is assumed')+'). Treat them as a rough guide, not a measurement.</p><p class="xs faint" style="margin:8px 0 0">Apple Health and Health Connect cannot be written to from a website, so workouts cannot sync there from this app. Export CSV (under Data) gives you everything to keep or import elsewhere.</p></div>';
   h+='<div class="card"><h3>Equipment</h3><p class="sm dim" style="margin:6px 0 10px">Tick what each place has. Exercises needing anything unticked are swapped automatically when you train there.</p><div class="lab">At the gym</div><div class="kit" style="margin:6px 0 12px">'+EQUIP.map(function(q){return '<button class="chip '+(s.kitGym[q[0]]?'on':'')+'" data-act="kit" data-w="Gym" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div><div class="lab">At home</div><div class="kit" style="margin-top:6px">'+EQUIP.map(function(q){return '<button class="chip '+(s.kitHome[q[0]]?'on':'')+'" data-act="kit" data-w="Home" data-q="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div></div>';
   h+='<div class="card"><h3>Appearance</h3>'+themeTiles()+'</div>';
   h+='<div class="card"><h3>Setup</h3><p class="sm dim" style="margin:6px 0 10px">Build a plan for your goal, or run the first-time setup again.</p><div class="row wrap"><button class="btn sm" data-act="build">Routine builder</button><button class="btn ghost sm" data-act="resetup">Run setup again</button></div></div>';
@@ -1260,21 +1435,26 @@ function vImport(){
   }
   return h;
 }
-function addCustomEx(name,muscle,type,eq){
-  var id='c_'+uid();var o={id:id,name:name,muscle:muscle||'Other',type:type||'w',eq:eq||[],alts:[]};
+function addCustomEx(name,muscle,type,eq,met){
+  var id='c_'+uid();var o={id:id,name:name,muscle:muscle||'Other',type:type||'w',eq:eq||[],alts:[],met:met||0};
   S.customEx.push(o);registerCustom([o]);return id;
 }
 
 /* ---------- pickers ---------- */
 var pickCb=null;
 function pickList(q){
-  q=(q||'').toLowerCase();
-  var l=EXLIST.filter(function(e){return !q||e.name.toLowerCase().indexOf(q)>=0||e.muscle.toLowerCase().indexOf(q)>=0}).sort(function(a,b){return a.name.localeCompare(b.name)}).slice(0,60);
-  return l.length?'<ul class="list">'+l.map(function(e){return '<li data-act="pickok" data-id="'+e.id+'" style="cursor:pointer"><div class="sp"><b>'+esc(e.name)+'</b><div class="xs dim">'+esc(e.muscle)+(e.eq.length?' · '+e.eq.join(', '):'')+'</div></div>'+(canDo(e.id,S.mode)?'':'<span class="badge">NOT IN '+S.mode.toUpperCase()+'</span>')+'</li>'}).join('')+'</ul>':'<div class="empty">No match.</div>';
+  var raw=(q||'').trim();q=raw.toLowerCase();
+  var l=EXLIST.filter(function(e){return (!ui.pickm||e.muscle===ui.pickm)&&(!q||e.name.toLowerCase().indexOf(q)>=0||e.muscle.toLowerCase().indexOf(q)>=0)}).sort(function(a,b){return a.name.localeCompare(b.name)});
+  var more=l.length>80;l=l.slice(0,80);
+  var h=l.length?'<ul class="list">'+l.map(function(e){return '<li data-act="pickok" data-id="'+e.id+'" style="cursor:pointer"><div class="sp"><b>'+esc(e.name)+'</b><div class="xs dim">'+esc(e.muscle)+(e.eq.length?' · '+e.eq.join(', '):'')+(e.custom?' · yours':'')+'</div></div>'+(canDo(e.id,S.mode)?'':'<span class="badge">NOT IN '+S.mode.toUpperCase()+'</span>')+'</li>'}).join('')+'</ul>':'<div class="empty">No match.</div>';
+  if(more)h+='<div class="xs dim" style="margin-top:6px">Showing the first 80. Type to narrow it down.</div>';
+  h+='<button class="btn ghost sm" data-act="newexpick" data-name="'+esc(raw)+'" style="margin-top:10px;width:100%">+ '+(raw?'Create “'+esc(raw)+'” as a new exercise':'Create your own exercise')+'</button>';
+  return h;
 }
+function pickChips(){return '<div class="sub-tabs" id="pickchips" style="margin-top:8px"><button class="chip '+(!ui.pickm?'on':'')+'" data-act="pickm" data-m="">All</button>'+MUSCLES.concat(['Other']).map(function(m){return '<button class="chip '+(ui.pickm===m?'on':'')+'" data-act="pickm" data-m="'+m+'">'+m+'</button>'}).join('')+'</div>'}
 function pickSheet(title,cb){
-  pickCb=cb;
-  sheet('<h2>'+esc(title)+'</h2><input id="pickq" placeholder="Search exercises" autocomplete="off"><div id="picklist" style="margin-top:8px">'+pickList('')+'</div><div class="row" style="margin-top:10px"><button class="btn ghost sp" data-act="closesheet">Cancel</button></div>');
+  pickCb=cb;ui.pickm='';
+  sheet('<h2>'+esc(title)+'</h2><input id="pickq" placeholder="Search '+EXLIST.length+' exercises" autocomplete="off">'+pickChips()+'<div id="picklist" style="margin-top:8px">'+pickList('')+'</div><div class="row" style="margin-top:10px"><button class="btn ghost sp" data-act="closesheet">Cancel</button></div>');
   var i=$('#pickq');if(i)i.addEventListener('input',function(){$('#picklist').innerHTML=pickList(i.value)});
 }
 
@@ -1326,11 +1506,11 @@ function finishWorkout(){
   if(!entries.length){sheet('<h2>No sets logged</h2><p class="dim">Tick at least one set to save a workout.</p><div class="row"><button class="btn crit sp" data-act="discard">Discard it</button><button class="btn ghost sp" data-act="closesheet">Keep going</button></div>');return}
   var se={id:a.id,rid:a.rid,name:a.name,mode:a.mode,date:a.date,start:a.start,end:Date.now(),entries:entries};
   S.sessions.push(se);if(a.rid)S.lastDone[a.rid]=a.date;
-  S.active=null;save();
+  S.active=null;save();try{wl&&wl.release();wl=null}catch(e){}
   var st=sessionStats(se),prl=[];
   entries.forEach(function(e){e.sets.forEach(function(s){if(s.pr)prl.push(exName(e.ex)+': '+(num(s.w)>0?dW(s.w)+' '+UL()+' × '+s.r:s.r+(EX[e.ex]&&EX[e.ex].type==='t'?'s':' reps')))})});
   nav={tab:'today',sub:null};render();window.scrollTo(0,0);
-  sheet('<h2>Workout saved</h2><div class="grid2" style="margin:10px 0"><div class="stat"><b>'+dur(st.ms)+'</b><span class="sm dim">time</span></div><div class="stat"><b>'+st.sets+'</b><span class="sm dim">sets</span></div><div class="stat"><b>'+fmtK(toU(st.vol))+' '+UL()+'</b><span class="sm dim">volume</span></div><div class="stat"><b>'+st.prs+'</b><span class="sm dim">PRs</span></div></div>'+(prl.length?'<div class="lab">New PRs</div><ul class="list">'+prl.map(function(p){return '<li><span class="pr">&#127942;</span> '+esc(p)+'</li>'}).join('')+'</ul>':'')+'<div class="row" style="margin-top:12px"><button class="btn sp" data-act="closesheet">Done</button></div>');
+  sheet('<h2>Workout saved</h2><div class="grid2" style="margin:10px 0"><div class="stat"><b>'+dur(st.ms)+'</b><span class="sm dim">time</span></div><div class="stat"><b>'+st.sets+'</b><span class="sm dim">sets</span></div><div class="stat"><b>'+fmtK(toU(st.vol))+' '+UL()+'</b><span class="sm dim">volume</span></div><div class="stat"><b>'+st.prs+'</b><span class="sm dim">PRs</span></div></div>'+calBlock(se)+(prl.length?'<div class="lab">New PRs</div><ul class="list">'+prl.map(function(p){return '<li><span class="pr">&#127942;</span> '+esc(p)+'</li>'}).join('')+'</ul>':'')+'<div class="row" style="margin-top:12px"><button class="btn sp" data-act="closesheet">Done</button></div>');
 }
 
 /* ---------- routine helpers ---------- */
@@ -1405,7 +1585,7 @@ document.addEventListener('click',function(ev){
       var sinf=ssInfo(act.entries,i),nextInRound=null;
       if(sinf&&st.t!=='w'){for(var qq=sinf.idx.indexOf(i)+1;qq<sinf.idx.length;qq++){var nx=act.entries[sinf.idx[qq]];if(nx.sets[s]&&!nx.sets[s].d){nextInRound=nx;break}}}
       if(nextInRound){toast('Superset: now '+exName(nextInRound.ex),2200)}
-      else if(e.rest&&st.t!=='w'||(e.rest&&s<e.sets.length-1)){startRest(st.t==='w'?Math.min(e.rest,60):e.rest)}
+      else if(e.rest&&st.t!=='w'||(e.rest&&s<e.sets.length-1)){startRest(st.t==='w'?Math.min(e.rest,60):e.rest,s<e.sets.length-1?exName(e.ex)+' set '+(s+2):(act.entries[i+1]?exName(act.entries[i+1].ex):'finish up'))}
     }else{st.d=false;delete st.pr}
     save();ui.keepScroll=true;render();break}
   case 'addset':{var e1=act.entries[i],l=e1.sets[e1.sets.length-1]||{};e1.sets.push({w:l.w||'',r:l.r||'',rpe:'',d:false,t:'n'});save();ui.keepScroll=true;render();break}
@@ -1434,7 +1614,7 @@ document.addEventListener('click',function(ev){
   case 'finish':finishWorkout();break;
   case 'discard':sheet('<h2>Discard this workout?</h2><p class="dim">Everything logged in it is lost.</p><div class="row"><button class="btn ghost sp" data-act="closesheet">Keep it</button><button class="btn crit sp" data-act="discardok">Discard</button></div>');break;
   case 'discardok':S.active=null;save();closeSheet();nav={tab:'today',sub:null};render();break;
-  case 'restadj':if(act&&act.rest){act.rest.end+=(+el.dataset.d)*1000;act.rest.total=Math.max(act.rest.total,Math.ceil((act.rest.end-Date.now())/1000));act.rest.fired=false;save();$('#restslot').innerHTML=restHtml();tick()}break;
+  case 'restadj':if(act&&act.rest){act.rest.end+=(+el.dataset.d)*1000;act.rest.total=Math.max(act.rest.total,Math.ceil((act.rest.end-Date.now())/1000));act.rest.fired=false;save();$('#restslot').innerHTML=restHtml();armRest();tick()}break;
   case 'restskip':if(act){act.rest=null;save();$('#restslot').innerHTML=''}break;
   /* routines */
   case 'newroutine':{var r={id:uid(),name:'New routine',tag:'My routines',items:[]};S.routines.push(r);save();go('work',{k:'routine',id:r.id});break}
@@ -1457,7 +1637,17 @@ document.addEventListener('click',function(ev){
   case 'exopen':exDetail(el.dataset.id);break;
   case 'newex':newExSheet();break;
   case 'cxeq':el.classList.toggle('on');break;
-  case 'savecx':{var nm=$('#cx-name').value.trim();if(!nm){toast('Give it a name');break}var eq=$$('#cx-eq .chip.on').map(function(c){return c.dataset.q});addCustomEx(nm,$('#cx-m').value,$('#cx-t').value,eq);save();closeSheet();render();toast('Added');break}
+  case 'savecx':{
+    var nm=$('#cx-name').value.trim();if(!nm){toast('Give it a name');break}
+    var eq=$$('#cx-eq .chip.on').map(function(c){return c.dataset.q}),mt=+$('#cx-met').value||0,edId=$('#cx-wrap').dataset.edit,ret=ui.cxRet;ui.cxRet=null;
+    var dup=EXLIST.filter(function(x){return x.id!==edId&&x.name.toLowerCase()===nm.toLowerCase()})[0];
+    if(dup&&!ret){toast('You already have "'+dup.name+'"');ui.cxRet=ret;break}
+    if(edId){var ce=S.customEx.filter(function(c){return c.id===edId})[0];if(ce){ce.name=nm;ce.muscle=$('#cx-m').value;ce.type=$('#cx-t').value;ce.eq=eq;ce.met=mt;ce.edited=Date.now();var ex0=EX[edId];ex0.name=nm;ex0.muscle=ce.muscle;ex0.type=ce.type;ex0.eq=eq;ex0.met=mt}save();closeSheet();render();toast('Saved');break}
+    var nid=(dup&&ret)?dup.id:addCustomEx(nm,$('#cx-m').value,$('#cx-t').value,eq,mt);save();closeSheet();
+    if(ret){ret(nid);toast('Added "'+nm+'"')}else{render();toast('Added')}break}
+  case 'newexpick':{var cb2=pickCb;pickCb=null;closeSheet();newExSheet({name:el.dataset.name||'',ret:cb2});break}
+  case 'pickm':{ui.pickm=el.dataset.m||'';var pc=$('#pickchips');if(pc)pc.outerHTML=pickChips();var pl=$('#picklist'),pq=$('#pickq');if(pl)pl.innerHTML=pickList(pq?pq.value:'');break}
+  case 'editex':closeSheet();newExSheet({edit:el.dataset.id});break;
   case 'delex':tomb('x:'+el.dataset.id);S.customEx=S.customEx.filter(function(c){return c.id!==el.dataset.id});delete EX[el.dataset.id];EXLIST.splice(EXLIST.findIndex(function(x){return x.id===el.dataset.id}),1);save();closeSheet();render();break;
   /* progress + body */
   case 'progtab':ui.prog=el.dataset.t;render();break;
@@ -1476,6 +1666,12 @@ document.addEventListener('click',function(ev){
   case 'signup':doAuth(true);break;
   case 'signout':authSet(null);sync.state='local';sync.msg='Saved on this device';render();break;
   case 'backup':copyText(JSON.stringify(S),'Backup copied');break;
+  case 'notifyon':{
+    if(S.settings.notify&&canNotify()){S.settings.notify=false;save();render();toast('Notifications off');break}
+    if(!('Notification' in window)){toast('Notifications are not supported here');break}
+    if(Notification.permission==='granted'){S.settings.notify=true;save();render();toast('Notifications on');break}
+    Notification.requestPermission().then(function(p){S.settings.notify=(p==='granted');save();render();toast(p==='granted'?'Notifications on':'Not allowed. You can change this in your settings.')});break}
+  case 'resttest':{toast('Switch apps or lock your phone now. Test in 5 seconds.',4000);setTimeout(function(){beep(true);if(!notifyRestOver({next:'this is a test'},true))toast('Rest over. Go! (notifications are off)',3000)},5000);break}
   case 'unit':S.settings.unit=el.dataset.u==='lb'?'lb':'kg';save();render();break;
   case 'csvexport':exportCSV();break;
   case 'privacy':privacySheet();break;

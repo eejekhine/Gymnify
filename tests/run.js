@@ -12,7 +12,7 @@ const srv = http.createServer((q, r) => {
   try { const f = path.join(root, u.slice(1)); r.setHeader('content-type', mime[path.extname(f)] || 'text/plain'); r.end(fs.readFileSync(f)); } catch (e) { r.statusCode = 404; r.end(); }
 });
 let pass = 0, fail = 0;
-const EXLISTJ = ['max_jump','jump_squat','depth_sl','sl_hop','broad','ankle_hop','pogo','approach','tuck_jump'];
+const EXLISTJ = ['max_jump','jump_squat','depth_sl','sl_hop','broad','ankle_hop','pogo','approach','tuck_jump','box_jump','lat_bound','skater'];
 const NOW = Date.now();
 const mime = { '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png' };
 const eq = (name, got, want) => { const ok = JSON.stringify(got) === JSON.stringify(want); ok ? pass++ : fail++; console.log((ok ? 'PASS ' : 'FAIL ') + name + (ok ? '' : '\n   got:  ' + JSON.stringify(got) + '\n   want: ' + JSON.stringify(want))); };
@@ -131,6 +131,70 @@ const eq = (name, got, want) => { const ok = JSON.stringify(got) === JSON.string
   const lowerHasJump = pl.filter(d => /Lower/.test(d[0])).every(d => d[1].some(id => EXLISTJ.includes(id)));
   eq('athlete plan puts jump work on lower days', lowerHasJump, true);
   eq('athlete plan keeps jumps off upper days', pl.filter(d => /Upper/.test(d[0])).some(d => d[1].some(id => EXLISTJ.includes(id))), false);
+
+  {
+  const p = p2; const E = c => p.evaluate(x => EV(x), c); const text = async s => (await p.locator(s || '#app').innerText()).replace(/\n+/g, ' | ');
+  // --- exercise library
+  eq('library has well over 200 exercises', (await E('EXLIST.length')) > 220, true);
+  eq('every exercise id is unique', await E('new Set(EXLIST.map(function(x){return x.id})).size===EXLIST.length'), true);
+  eq('every swap option points at a real exercise', await E('EXLIST.filter(function(e){return e.alts.some(function(a){return !EX[a]})}).map(function(e){return e.id})'), []);
+  eq('every equipment and muscle name is known', await E("EXLIST.filter(function(e){return e.muscle!=='Other'&&MUSCLES.indexOf(e.muscle)<0||e.eq.some(function(q){return !EQUIP.some(function(z){return z[0]===q})})}).map(function(e){return e.id})"), []);
+  eq('every exercise has a way to do it at home or is gym-only by equipment', await E("EXLIST.every(function(e){return e.type==='w'||e.type==='b'||e.type==='t'})"), true);
+
+  // --- calorie estimate
+  await E("S.weights=[{d:'2026-11-01',kg:80}];S.settings.cal=true");
+  const sets20 = "Array.apply(null,Array(20)).map(function(){return {w:'60',r:'10',d:true,t:'n'}})";
+  eq('lifting estimate: 20 sets in an hour at 80 kg', await E("calEst({start:0,end:3600000,entries:[{ex:'bench',sets:" + sets20 + "}]})"), { kcal: 432, assumed: false });
+  eq('cardio estimate uses the treadmill MET for the time on it', (await E("calEst({start:0,end:1800000,entries:[{ex:'treadmill',sets:[{w:'',r:'1800',d:true,t:'n'}]}]})")).kcal, 332);
+  eq('no body weight assumes 75 kg and says so', await E("S.weights=[];calEst({start:0,end:3600000,entries:[{ex:'bench',sets:" + sets20 + "}]})"), { kcal: 405, assumed: true });
+  eq('a workout with no time has no estimate', await E("calEst({start:5,end:5,entries:[]})"), null);
+  eq('calorie estimate can be switched off', await E("S.settings.cal=false;calBlock({start:0,end:3600000,entries:[{ex:'bench',sets:" + sets20 + "}]})"), '');
+  await E("S.settings.cal=true");
+  eq('custom effort level overrides the estimate', await E("var id=addCustomEx('Testy hold','Core','t',[],9);S.active=null;calEst({start:0,end:600000,entries:[{ex:id,sets:[{w:'',r:'600',d:true,t:'n'}]}]}).kcal"), Math.round(9 * 75 * 600 / 3600));
+  await E("S.customEx=S.customEx.filter(function(c){return c.name!=='Testy hold'});EXLIST=EXLIST.filter(function(e){return e.name!=='Testy hold'})");
+
+  // --- rest reminders
+  await E("window.__n=[];canNotify=function(){return true};showNote=function(t,o){window.__n.push([t,o.body])};S.settings.notify=true");
+  eq('rest-over notification says what is next', [await E("notifyRestOver({next:'Bench Press set 2'},true)"), await E("window.__n")], [true, [['Rest over. Go!', 'Next: Bench Press set 2']]]);
+  eq('notification is skipped while the app is on screen', await E("notifyRestOver({next:'x'})"), false);
+  eq('notification is skipped when switched off', await E("S.settings.notify=false;notifyRestOver({next:'x'},true)"), false);
+  await E("S.settings.notify=true;startEmpty();S.active.entries.push(mkEntry({ex:'bench',sets:3,reps:'8',rest:90},'gym'));S.active.entries.push(mkEntry({ex:'squat',sets:2,reps:'5',rest:120},'gym'));nav={tab:'today',sub:{k:'workout'}};save();render()");
+  const tick = async (i, s) => { await E("var b=document.createElement('button');b.dataset.act='tick';b.dataset.i='" + i + "';b.dataset.s='" + s + "';var x=S.active.entries[" + i + "].sets[" + s + "];x.w=x.w||'60';x.r=x.r||'8';document.body.appendChild(b);b.click()"); await p.waitForTimeout(150); };
+  await tick(0, 0);
+  eq('rest after a set remembers the next set', await E("S.active.rest&&[S.active.rest.total,S.active.rest.next]"), [90, 'Bench Press set 2']);
+  await tick(0, 1); await tick(0, 2);
+  eq('rest after the last set points at the next exercise', await E("S.active.rest.next"), 'Back Squat');
+  await E("S.active.rest.end=Date.now()-1000;S.active.rest.fired=false;window.__n=[];tick()");
+  eq('rest timer fires once when it ends', await E("S.active.rest.fired"), true);
+  eq('settings screen has the reminder switches', await E("S.settings.sound!==false&&S.settings.vibrate!==false&&S.settings.keepAwake!==false"), true);
+  await E("S.active=null;save();nav={tab:'today',sub:{k:'settings'}};render()");
+  const settingsText = await text();
+  eq('settings shows Rest reminders and Calories cards', [/Rest reminders/.test(settingsText), /Calories and health apps/.test(settingsText), /Test it/.test(settingsText)], [true, true, true]);
+  await E("nav={tab:'today',sub:null};render()");
+
+  // --- custom exercises from the workout picker, and picking by muscle
+  await E("startEmpty();nav={tab:'today',sub:{k:'workout'}};save();render()");
+  await p.click('[data-act="addex"]'); await p.waitForTimeout(200);
+  await p.click('[data-act="pickm"][data-m="Cardio"]'); await p.waitForTimeout(100);
+  const cardioList = await p.locator('#picklist').innerText();
+  eq('muscle chips filter the picker', [/Treadmill/.test(cardioList), /Bench Press/.test(cardioList)], [true, false]);
+  await p.click('[data-act="pickm"][data-m=""]');
+  await p.fill('#pickq', 'Landmine Squat Hold'); await p.waitForTimeout(100);
+  eq('picker offers to create what you searched for', (await p.locator('[data-act="newexpick"]').innerText()).includes('Landmine Squat Hold'), true);
+  await p.click('[data-act="newexpick"]'); await p.waitForTimeout(150);
+  eq('the new-exercise form is prefilled with the search', await p.inputValue('#cx-name'), 'Landmine Squat Hold');
+  await p.click('[data-act="cxeq"][data-q="barbell"]'); await p.selectOption('#cx-t', 't'); await p.selectOption('#cx-m', 'Core');
+  await p.click('[data-act="savecx"]'); await p.waitForTimeout(200);
+  eq('creating from the picker adds it to the workout', await E("S.active.entries.length+':'+exName(S.active.entries[0].ex)"), '1:Landmine Squat Hold');
+  eq('custom exercise keeps its type, muscle and equipment', await E("var c=S.customEx[0];[c.type,c.muscle,c.eq.join(),c.name].join('|')"), 't|Core|barbell|Landmine Squat Hold');
+  eq('custom exercise is searchable like any other', await E("EXLIST.some(function(e){return e.custom&&e.name==='Landmine Squat Hold'})"), true);
+  await E("exDetail(S.customEx[0].id)"); await p.click('[data-act="editex"]'); await p.waitForTimeout(150);
+  await p.fill('#cx-name', 'Landmine Hold'); await p.click('[data-act="savecx"]'); await p.waitForTimeout(150);
+  eq('editing a custom exercise renames it everywhere', await E("[S.customEx[0].name,exName(S.customEx[0].id),exName(S.active.entries[0].ex),EXLIST.filter(function(e){return e.id===S.customEx[0].id})[0].name].join('|')"), 'Landmine Hold|Landmine Hold|Landmine Hold|Landmine Hold');
+  await p.click('[data-act="addex"]'); await p.fill('#pickq', 'landmine hold'); await p.click('[data-act="newexpick"]'); await p.fill('#cx-name', 'landmine hold'); await p.click('[data-act="savecx"]'); await p.waitForTimeout(150);
+  eq('creating a duplicate name from the picker reuses the existing one', await E("S.customEx.length+':'+S.active.entries.length"), '1:2');
+  await E("S.active=null;save();nav={tab:'today',sub:null};render()");
+  }
   eq('no page errors', errs, []);
   await b2.close(); srv.close();
   console.log('\n' + pass + ' passed, ' + fail + ' failed');

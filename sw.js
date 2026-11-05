@@ -1,5 +1,5 @@
 // Gymnify service worker: opens offline, but always fetches the newest version when online.
-const CACHE = 'gymnify-v8';
+const CACHE = 'gymnify-v9';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -21,4 +21,13 @@ self.addEventListener('fetch', (e) => {
       return res;
     }).catch(() => caches.match(req, { ignoreSearch: true }).then((hit) => hit || (req.mode === 'navigate' ? caches.match('./index.html') : Response.error())))
   );
+});
+
+// Tapping a rest-over notification brings the app forward.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+    for (const w of wins) { if ('focus' in w) return w.focus(); }
+    return self.clients.openWindow('./');
+  }));
 });
