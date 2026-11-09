@@ -3,6 +3,7 @@
 Newest first. Each entry: what changed, why, and what is next.
 
 ## M8 (latest)
+- Hooper starter routines now match the Hooper Programme page exactly: full warm-ups, the VMO (Patrick step-up) holds, 90/90 and deep squat stretches, recovery flows and coaching notes. New exercise: VMO Hold (Patrick Step-Up).
 - Rest reminders: when the rest timer ends you get a double beep and a buzz (Android), and a notification saying which set or exercise is next if you have switched apps. Settings > Rest reminders has sound, vibrate and keep-screen-on switches, a notification permission button and a 5-second test. Tapping the notification returns to the app.
 - Honest limit: this is a website. A locked phone can pause it, so the notification may be late or missing; keeping the screen on is the reliable route. On iPhone, add to the Home Screen first. True background alerts would need Web Push through a server (not built; needs a decision because it touches the shared Supabase project).
 - Exercise library grew from about 125 to about 242 (kettlebell, traps, forearms, adductors, more machine, cable, bodyweight and conditioning moves).
