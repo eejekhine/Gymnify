@@ -666,6 +666,7 @@ function sbFetch(path,opts){
   });
 }
 function queueSync(){
+  if(HUBMODE)ksyncQueue();
   if(!sbReady()||sync.state==='missing')return;
   clearTimeout(sync.timer);sync.timer=setTimeout(push,1500);
 }
@@ -788,7 +789,7 @@ function gsLoad(cb){
      gsPaint();cb&&cb()});
 }
 function gsPaint(){var c=$('#gscard');if(c)c.innerHTML=gsCardInner();var b=$('#gsbar');if(b)b.innerHTML=gsBarInner();var t=$('#gsset');if(t)t.innerHTML=gsSettingsInner()}
-function gsKick(){if(gsOn()&&Date.now()-gs.loadedAt>10000&&($('#gscard')||$('#gsbar')||$('#gsset')))gsLoad()}
+function gsKick(){if(HUBMODE&&ksyncOn()&&Date.now()-ks.at>60000)ksync();if(gsOn()&&Date.now()-gs.loadedAt>10000&&($('#gscard')||$('#gsbar')||$('#gsset')))gsLoad()}
 setInterval(function(){
   if(document.hidden||!gsOn())return;
   gs.ticks++;
@@ -883,13 +884,13 @@ function gsCardInner(){
 
 /* settings */
 function gsSettingsInner(){
-  var h='<h3>Train together</h3>';
+  var h='<h3>'+(HUBMODE?'Klander account: Gymnify sync and groups':'Train together')+'</h3>';
   if(!gsReady()){
-    if(HUBMODE)return h+'<p class="sm dim" style="margin:6px 0 10px">Group sessions use your Klander account (the same login as Klander and Gymnify). Sign in here. It is separate from your Hub sign-in and only used for groups.</p><div style="display:grid;gap:8px"><input id="gs-email" type="email" autocomplete="username" inputmode="email" autocapitalize="off" placeholder="Klander email"><input id="gs-pass" type="password" autocomplete="current-password" placeholder="Password"></div><div class="row" style="margin-top:10px"><button class="btn sm" data-act="gssignin">Sign in</button></div><div class="sm dim" id="gs-msg" style="margin-top:8px"></div>';
+    if(HUBMODE)return h+'<p class="sm dim" style="margin:6px 0 10px">Sign in with your Klander account (the same login as Gymnify). This syncs your Hub workouts with Gymnify, so both show one history, and it lets you train in groups. It is separate from your Hub sign-in.</p><div style="display:grid;gap:8px"><input id="gs-email" type="email" autocomplete="username" inputmode="email" autocapitalize="off" placeholder="Klander email"><input id="gs-pass" type="password" autocomplete="current-password" placeholder="Password"></div><div class="row" style="margin-top:10px"><button class="btn sm" data-act="gssignin">Sign in</button></div><div class="sm dim" id="gs-msg" style="margin-top:8px"></div>';
     return h+'<p class="sm dim" style="margin:6px 0 0">Sign in with your account (below) to train with your Klander friends.</p>';
   }
   if(gs.missing)return h+'<p class="sm dim" style="margin:6px 0 0">Group sessions are not switched on for this account yet.</p>';
-  if(HUBMODE){var ga=authGet();h+='<p class="sm dim" style="margin:6px 0 0">Signed in to Klander as <b>'+esc((ga&&ga.email)||'your account')+'</b>. <a href="#" data-act="gssignout" style="color:var(--accent)">Sign out</a></p>'}
+  if(HUBMODE){var ga=authGet();h+='<p class="sm dim" style="margin:6px 0 0">Signed in to Klander as <b>'+esc((ga&&ga.email)||'your account')+'</b>. <a href="#" data-act="gssignout" style="color:var(--accent)">Sign out</a></p><p class="xs faint" style="margin:6px 0 0">Workouts, routines, body logs and settings are kept in sync with Gymnify. <span id="ksyncmsg">'+esc(ks.msg)+'</span></p>'}
   h+='<label class="row sm" style="gap:8px;margin-top:10px"><input type="checkbox" data-act="gsopt" '+(gs.optin?'checked':'')+' style="width:auto"> Let my Klander friends invite me to group sessions</label>';
   h+='<p class="xs faint" style="margin:10px 0 0">Only friends you have accepted in Klander can see that you are here, and only they can invite you. Inside a session, everyone in it sees your name and your working sets (exercise, weight, reps). Never your body weight, measurements, photos or notes. Sessions delete themselves after 30 days. Turn this off any time.</p>';
   return h;
@@ -966,12 +967,41 @@ function gsSummarySheet(sid){
   });
 }
 
+
+/* Hub copy only: also keep the workouts in sync with the Klander (Gymnify) account, so the Hub and Gymnify share one history */
+var ks={busy:false,timer:null,at:0,msg:''};
+function ksyncOn(){return HUBMODE&&gsReady()&&!gs.missing}
+function ksyncQueue(){if(!ksyncOn())return;clearTimeout(ks.timer);ks.timer=setTimeout(function(){ksync()},2500)}
+function ksyncPaint(){var e=$('#ksyncmsg');if(e)e.textContent=ks.msg}
+function ksync(cb){
+  if(!ksyncOn()||ks.busy){cb&&cb();return}
+  ks.busy=true;ks.at=Date.now();
+  gsGet('gymnify_state?select=updated,data').then(function(rows){
+    var inc=rows&&rows.length?rows[0].data:null,incUpd=rows&&rows.length?(rows[0].updated||0):0,changed=false;
+    if(inc&&inc.v&&(!sameSynced(S,inc)||incUpd>(S.updated||0))){
+      if(S.sessions&&S.sessions.length){try{localStorage.setItem(KEY+'.backup',JSON.stringify(S))}catch(e){}}
+      var a=S.active,merged=mergeState(S,inc),keep=a&&(!inc.active||a.start>=((inc.active||{}).start||0));
+      S=Object.assign(defaults(),merged);S.active=keep?a:(inc.active||null);registerCustom(S.customEx);
+      if(!S.settings.setupDone&&(S.sessions.length||S.routines.length||S.weights.length))S.settings.setupDone=true;
+      if(!sameSynced(merged,inc))S.updated=Date.now();
+      try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+      changed=true;
+    }
+    var needPush=!inc||!inc.v||!sameSynced(S,inc)||(S.updated||0)>incUpd;
+    if(!needPush)return {changed:changed};
+    return gsFetch('gymnify_state?columns=user_id,updated,data&on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({updated:S.updated||0,data:S})}).then(function(r){if(!r.ok)throw gsFail(r,'');return {changed:changed}});
+  }).then(function(r){
+    ks.busy=false;ks.msg='Synced with Gymnify '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});ksyncPaint();
+    if(r&&r.changed&&!(nav.sub&&nav.sub.k==='workout')){ui.keepScroll=true;render()}
+    cb&&cb(true);
+  },function(e){ks.busy=false;ks.msg=(e&&e.status===401)?'Signed out of Klander. Sign in again to sync with Gymnify.':'Could not sync with Gymnify yet. It will retry.';ksyncPaint();cb&&cb()});
+}
 function gsSignIn(){
   var em=(($('#gs-email')||{}).value||'').trim(),pw=($('#gs-pass')||{}).value||'',msg=$('#gs-msg');if(!msg)return;
   if(!em||pw.length<8){msg.textContent='Enter your Klander email and password';return}
   msg.textContent='One moment…';
   authCall('token?grant_type=password',{email:em,password:pw}).then(function(r){
-    if(r.ok&&r.j.access_token){var a=authFromResp(r.j);a.email=a.email||em;authSet(a);gs.missing=false;gs.loadedAt=0;render();gsLoad();return}
+    if(r.ok&&r.j.access_token){var a=authFromResp(r.j);a.email=a.email||em;authSet(a);gs.missing=false;gs.loadedAt=0;render();gsLoad();ksync();return}
     msg.textContent=(r.j&&(r.j.error_description||r.j.msg||r.j.message))||'That did not work, try again';
   }).catch(function(){msg.textContent='No connection. Try again when you are online.'});
 }
@@ -1910,7 +1940,7 @@ document.addEventListener('click',function(ev){
   case 'gsopt':{var want=el.checked;gsFetch('gym_prefs?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:gsUid(),group_ok:want,updated_at:new Date().toISOString()})}).then(function(r){if(r.ok){gs.optin=want;toast(want?'Friends can invite you now':'Friends can no longer invite you',2500)}else{el.checked=!want;toast('Could not save that. Try again.',2500)}},function(){el.checked=!want;toast('Offline. Try again later.',2500)});break}
   /* settings */
   case 'kit':{var kk=el.dataset.w==='Home'?S.settings.kitHome:S.settings.kitGym;kk[el.dataset.q]=!kk[el.dataset.q];save();render();break}
-  case 'syncnow':sync.state='local';pull(function(){push()});break;
+  case 'syncnow':sync.state='local';pull(function(){push()});if(HUBMODE)ksync();break;
   case 'signin':doAuth(false);break;
   case 'signup':doAuth(true);break;
   case 'signout':authSet(null);sync.state='local';sync.msg='Saved on this device';render();break;

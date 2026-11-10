@@ -26,7 +26,7 @@ const jwt = id => 'h.' + b64({ sub: id }) + '.s';
 const uidOf = req => { const a = req.headers()['authorization'] || ''; try { return JSON.parse(Buffer.from(a.replace('Bearer ', '').split('.')[1], 'base64url').toString()).sub; } catch (e) { return null; } };
 
 // ---- the stand-in database
-const db = { prefs: {}, sessions: [], members: [], sets: [], hi5: [], n: 0, missing: false, calls: [], down: {} };
+const db = { prefs: {}, sessions: [], members: [], sets: [], hi5: [], n: 0, missing: false, calls: [], down: {}, state: {} };
 const memberOf = (sid, u) => db.members.find(m => m.session_id === sid && m.user_id === u);
 function handle(route) {
   const req = route.request(), url = new URL(req.url()), p = url.pathname.replace('/rest/v1/', ''), me = uidOf(req), method = req.method();
@@ -35,7 +35,11 @@ function handle(route) {
   if (db.down[me]) return route.abort('internetdisconnected');
   if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } });
   if (url.pathname.includes('/auth/v1/token')) return ok({ access_token: jwt(BEN), refresh_token: 'r2', expires_in: 3600, user: { email: 'ben@example.test' } });
-  if (p === 'gymnify_state') return ok(method === 'GET' ? [] : null, method === 'GET' ? 200 : 201);
+  if (p === 'gymnify_state') {
+    if (method === 'GET') return ok(db.state[me] ? [db.state[me]] : []);
+    let b0 = {}; try { b0 = JSON.parse(req.postData() || '{}'); } catch (e) {}
+    db.state[me] = { data: b0.data, updated: b0.updated }; return ok(null, 201);
+  }
   if (db.missing) return err(404, 'Could not find the function');
   let body = {}; try { body = JSON.parse(req.postData() || '{}'); } catch (e) {}
   db.calls.push(method + ' ' + p);
@@ -202,8 +206,16 @@ function handle(route) {
   await hp.evaluate(() => { nav = { tab: 'today', sub: { k: 'settings' } }; });
   await hp.evaluate(() => EV("nav={tab:'today',sub:{k:'settings'}};render()"));
   eq('hub copy offers a separate Klander sign-in for groups', [await hp.locator('#gs-email').count(), (await hp.locator('#gsset').innerText()).includes('separate from your Hub sign-in')], [1, true]);
+  // Gymnify account already holds a workout and a routine; the hub copy holds a different workout
+  db.state[BEN] = { updated: 50, data: { v: 1, updated: 50, sessions: [{ id: 'gym-s1', date: '2026-11-02', name: 'Gymnify pull', mode: 'gym', start: 1, end: 2, entries: [] }], routines: [{ id: 'r-g', name: 'Gymnify routine', tag: 'x', items: [] }], weights: [], measures: [], customEx: [], lastDone: {}, plan: {}, tomb: {}, settings: {} } };
+  await hp.evaluate(() => EV("S.sessions.push({id:'hub-s1',date:'2026-11-01',name:'Hub push',mode:'gym',start:1,end:2,entries:[]});save()"));
   await hp.fill('#gs-email', 'ben@example.test'); await hp.fill('#gs-pass', 'not-a-real-pass'); await hp.click('[data-act=gssignin]'); await hp.waitForTimeout(700);
   eq('after signing in the hub copy can use groups', [await hp.locator('[data-act=gsopt]').count(), (await hp.locator('#gsset').innerText()).includes('Signed in to Klander as')], [1, true]);
+  await hp.waitForTimeout(600);
+  eq('signing in merges Hub and Gymnify workouts both ways', [(await hp.evaluate(() => EV("S.sessions.map(function(x){return x.id}).sort().join()"))), db.state[BEN].data.sessions.map(x => x.id).sort().join(), (await hp.evaluate(() => EV("S.routines.some(function(r){return r.id==='r-g'})")))], ['gym-s1,hub-s1', 'gym-s1,hub-s1', true]);
+  eq('the settings card shows the sync status', (await hp.locator('#gsset').innerText()).includes('Synced with Gymnify'), true);
+  await hp.evaluate(() => EV("S.sessions.push({id:'hub-s2',date:'2026-11-03',name:'Hub legs',mode:'gym',start:1,end:2,entries:[]});save()")); await hp.waitForTimeout(3300);
+  eq('a new Hub workout reaches the Gymnify account', db.state[BEN].data.sessions.map(x => x.id).includes('hub-s2'), true);
   eq('hub sign-in stays separate from the hub login key', await hp.evaluate(() => Object.keys(localStorage).filter(k => /^sb-/.test(k)).length), 0);
   await hp.click('[data-act=gssignout]'); await hp.waitForTimeout(300);
   eq('hub copy can sign out of groups', await hp.locator('#gs-email').count(), 1);
