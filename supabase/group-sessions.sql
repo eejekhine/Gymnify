@@ -233,3 +233,6 @@ select cron.schedule('gym-session-cleanup', '23 3 * * *',
   $$delete from public.gym_sessions where created_at < now() - interval '30 days'$$);
 
 comment on table public.gym_sessions is 'Gymnify group sessions: invite-only, friends only, auto-deleted after 30 days.';
+
+-- internal helpers: only the functions above call them
+revoke execute on function public.gym_blocked(uuid, uuid), public.gym_friend_of(uuid, uuid) from authenticated, anon, public;
