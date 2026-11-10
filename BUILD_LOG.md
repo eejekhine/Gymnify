@@ -2,7 +2,17 @@
 
 Newest first. Each entry: what changed, why, and what is next.
 
-## M8 (latest)
+## M9 (latest): group sessions
+- Train together: on Today, Start a group session. Pick a routine, name it, invite your Klander friends. Everyone logs their own sets and sees the group on a strip at the top of the workout: who is in, sets done out of the plan, volume, the last set each person logged, and a high-five button. Invites show on Today (Join or Decline). The host can invite more people, end the session for everyone, or anyone can leave and keep their workout. Finishing a workout leaves the group, and a Results sheet shows sets, volume, PRs and top set for everyone.
+- Privacy (all enforced in the database, see supabase/group-sessions.sql): invite-only, accepted Klander friends only, and only friends who switched on Settings > Train together can be invited. Only people in a session can read its sets. Warm-up sets, body weight, photos and notes are never shared. Sessions delete themselves after 30 days. Max 8 people.
+- Works with a weak signal: sets go into a small queue and send when you are back online. If you finish while offline, unsent sets are dropped and the leave is retried later.
+- Hub build: group sessions are switched off in the Training Hub copy (different login).
+- NOT live yet: the database part (supabase/group-sessions.sql) has not been applied to the Klander Supabase project. Until it is, the app shows "Group sessions are not switched on for this account yet" and everything else works as before.
+- Honest limits: friends only see an invite when they have Gymnify open (no push alerts yet, that needs a server decision). Custom exercises from the host are skipped on a friend's list (a toast says so). Updates arrive every 5 seconds while a workout is open, not instantly.
+- Tests: 29 new (tests/groups.js, two simulated users against a stand-in database) plus the original 63. The real database rules are not covered by these and need a test with real accounts after the SQL is applied.
+- Service worker cache gymnify-v11.
+
+## M8
 - Hooper starter routines now match the Hooper Programme page exactly: full warm-ups, the VMO (Patrick step-up) holds, 90/90 and deep squat stretches, recovery flows and coaching notes. New exercise: VMO Hold (Patrick Step-Up).
 - Rest reminders: when the rest timer ends you get a double beep and a buzz (Android), and a notification saying which set or exercise is next if you have switched apps. Settings > Rest reminders has sound, vibrate and keep-screen-on switches, a notification permission button and a 5-second test. Tapping the notification returns to the app.
 - Honest limit: this is a website. A locked phone can pause it, so the notification may be late or missing; keeping the screen on is the reliable route. On iPhone, add to the Home Screen first. True background alerts would need Web Push through a server (not built; needs a decision because it touches the shared Supabase project).
@@ -21,10 +31,12 @@ Done:
 - **M5** Merge-based sync, automated tests (CI workflow file waiting in tests/)
 - **M6** Athlete goal with sport choice, screenshot import, welcome-screen import shortcut
 - **M7** Supersets, deload weeks, week-boundary fix for clock changes
+- **M8** Rest reminders, bigger exercise library, custom exercises, calorie estimates
+- **M9** Group sessions (built and tested against a stand-in; database part not applied yet)
 
 Now: **Tester round** (share the link, collect feedback directly, fix the top issues). Not done yet: real-phone checks of sign-up, sync, screenshot import, offline.
 
-Next (suggested order): light theme, exercise how-to text, delete-my-account button, then friends (design is on the roadmap page; opt-in, built on Klander friendships).
+Next (suggested order): apply the group sessions SQL and test with two real accounts, light theme, exercise how-to text, delete-my-account button, then friends feed and streaks (design is on the roadmap page).
 
 Each milestone is also copied into the Training Hub's Gym page with tools/build-gym.py in the hub repo.
 
