@@ -7,7 +7,7 @@ Newest first. Each entry: what changed, why, and what is next.
 - Privacy (all enforced in the database, see supabase/group-sessions.sql): invite-only, accepted Klander friends only, and only friends who switched on Settings > Train together can be invited. Only people in a session can read its sets. Warm-up sets, body weight, photos and notes are never shared. Sessions delete themselves after 30 days. Max 8 people.
 - Works with a weak signal: sets go into a small queue and send when you are back online. If you finish while offline, unsent sets are dropped and the leave is retried later.
 - Hub build: group sessions are switched off in the Training Hub copy (different login).
-- Database part applied to the Klander Supabase project on 10 Nov 2026 and rule-tested with throwaway accounts (rolled back): non-friends and non-opted-in people cannot be invited, non-members see nothing, only the host can end, no sets after the end.
+- NOT live yet: the database part (supabase/group-sessions.sql) has not been applied to the Klander Supabase project. Until it is, the app shows "Group sessions are not switched on for this account yet" and everything else works as before.
 - Honest limits: friends only see an invite when they have Gymnify open (no push alerts yet, that needs a server decision). Custom exercises from the host are skipped on a friend's list (a toast says so). Updates arrive every 5 seconds while a workout is open, not instantly.
 - Tests: 29 new (tests/groups.js, two simulated users against a stand-in database) plus the original 63. The real database rules are not covered by these and need a test with real accounts after the SQL is applied.
 - Service worker cache gymnify-v11.

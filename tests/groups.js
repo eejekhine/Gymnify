@@ -6,7 +6,7 @@ const http = require('http'), fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');
 let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const li = html.lastIndexOf('})();');
-const hubHtml = html.replace('<script>', '<script>window.GYM_GROUPS=false;');
+const hubHtml = html.replace('<script>', '<script>window.GYM_HUB=true;');
 html = html.slice(0, li) + 'window.EV=function(c){return eval(c)};\n' + html.slice(li);
 const hubPage = hubHtml.slice(0, hubHtml.lastIndexOf('})();')) + 'window.EV=function(c){return eval(c)};\n' + hubHtml.slice(hubHtml.lastIndexOf('})();'));
 const mime = { '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png' };
@@ -34,6 +34,7 @@ function handle(route) {
   const err = (status, message) => ok({ message }, status);
   if (db.down[me]) return route.abort('internetdisconnected');
   if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' } });
+  if (url.pathname.includes('/auth/v1/token')) return ok({ access_token: jwt(BEN), refresh_token: 'r2', expires_in: 3600, user: { email: 'ben@example.test' } });
   if (p === 'gymnify_state') return ok(method === 'GET' ? [] : null, method === 'GET' ? 200 : 201);
   if (db.missing) return err(404, 'Could not find the function');
   let body = {}; try { body = JSON.parse(req.postData() || '{}'); } catch (e) {}
@@ -196,8 +197,16 @@ function handle(route) {
   await op.goto(url); await op.waitForTimeout(400);
   eq('signed out: a card points to Settings', (await op.locator('#gscard').innerText()).includes('Sign in under Settings'), true);
   variant = 'hub';
+  await out.route('**/*supabase.co/**', handle);
   const hp = await out.newPage(); hp.on('pageerror', e => errs.push('hub: ' + e.message)); await hp.goto(url); await hp.waitForTimeout(400);
-  eq('hub build hides group sessions', [await hp.locator('#gscard').count(), (await hp.locator('#app').innerText()).includes('Train with friends')], [0, false]);
+  await hp.evaluate(() => { nav = { tab: 'today', sub: { k: 'settings' } }; });
+  await hp.evaluate(() => EV("nav={tab:'today',sub:{k:'settings'}};render()"));
+  eq('hub copy offers a separate Klander sign-in for groups', [await hp.locator('#gs-email').count(), (await hp.locator('#gsset').innerText()).includes('separate from your Hub sign-in')], [1, true]);
+  await hp.fill('#gs-email', 'ben@example.test'); await hp.fill('#gs-pass', 'not-a-real-pass'); await hp.click('[data-act=gssignin]'); await hp.waitForTimeout(700);
+  eq('after signing in the hub copy can use groups', [await hp.locator('[data-act=gsopt]').count(), (await hp.locator('#gsset').innerText()).includes('Signed in to Klander as')], [1, true]);
+  eq('hub sign-in stays separate from the hub login key', await hp.evaluate(() => Object.keys(localStorage).filter(k => /^sb-/.test(k)).length), 0);
+  await hp.click('[data-act=gssignout]'); await hp.waitForTimeout(300);
+  eq('hub copy can sign out of groups', await hp.locator('#gs-email').count(), 1);
 
   eq('no page errors', errs, []);
   console.log('\n' + pass + ' passed, ' + fail + ' failed');

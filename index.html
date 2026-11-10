@@ -756,15 +756,18 @@ function acctCard(){
 // Everything here talks to the gym_* tables and functions in the shared Supabase project. The rules
 // (friends only, invite only, only members read a session's sets) are enforced in the database.
 var GROUPS=window.GYM_GROUPS!==false;
+var HUBMODE=window.GYM_HUB===true; // the Training Hub copy signs in to Klander here, separately from the Hub login
+function gsReady(){var a=authGet();return !!(a&&a.refresh_token)}
+function gsFetch(path,opts){opts=opts||{};return token().then(function(t){opts.headers=Object.assign({apikey:SB_KEY,Authorization:'Bearer '+t,'Content-Type':'application/json'},opts.headers||{});return fetch(SB_URL+'/rest/v1/'+path,opts)})}
 var gs={list:[],friends:[],feed:{},hi5:{},optin:null,missing:false,err:'',loading:false,flushing:false,loadedAt:0,ticks:0,watch:'',hiAt:{},touch:null};
 function gsUid(){var a=authGet();if(!a||!a.access_token)return '';try{var p=a.access_token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');return JSON.parse(atob(p)).sub||''}catch(e){return ''}}
-function gsOn(){return GROUPS&&sbReady()&&!gs.missing}
+function gsOn(){return GROUPS&&gsReady()&&!gs.missing}
 function gsFail(r,t){var e=new Error('HTTP '+r.status);e.status=r.status;try{var j=JSON.parse(t);e.message=j.message||j.hint||e.message}catch(x){}if(r.status===404)gs.missing=true;return e}
 function gsRpc(name,body){
-  return sbFetch('rpc/'+name,{method:'POST',body:JSON.stringify(body||{})}).then(function(r){
+  return gsFetch('rpc/'+name,{method:'POST',body:JSON.stringify(body||{})}).then(function(r){
     return r.text().then(function(t){if(!r.ok)throw gsFail(r,t);try{return t?JSON.parse(t):null}catch(e){return null}})});
 }
-function gsGet(path){return sbFetch(path).then(function(r){return r.text().then(function(t){if(!r.ok)throw gsFail(r,t);try{return JSON.parse(t)}catch(e){return []}})})}
+function gsGet(path){return gsFetch(path).then(function(r){return r.text().then(function(t){if(!r.ok)throw gsFail(r,t);try{return JSON.parse(t)}catch(e){return []}})})}
 function gsActiveId(){return S.active&&S.active.gs?S.active.gs.id:''}
 function gsSess(id){return gs.list.filter(function(x){return x.id===id})[0]}
 function gsName(l,id){var m=l&&(l.members||[]).filter(function(x){return x.id===id})[0];return m?m.name:'A friend'}
@@ -810,8 +813,8 @@ function gsFlush(g,cb){
   if(!g||!g.q||!g.q.length||gs.flushing||!gsOn()){cb&&cb();return}
   gs.flushing=true;var o=g.q[0],uid=gsUid();
   var req=o.op==='put'
-   ?sbFetch('gym_session_sets?on_conflict=session_id,user_id,client_key',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({session_id:g.id,client_key:o.key,exercise:o.ex,set_no:o.n,weight_kg:o.w,reps:o.r,is_pr:o.pr})})
-   :sbFetch('gym_session_sets?session_id=eq.'+encodeURIComponent(g.id)+'&user_id=eq.'+encodeURIComponent(uid)+'&client_key=eq.'+encodeURIComponent(o.key),{method:'DELETE'});
+   ?gsFetch('gym_session_sets?on_conflict=session_id,user_id,client_key',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({session_id:g.id,client_key:o.key,exercise:o.ex,set_no:o.n,weight_kg:o.w,reps:o.r,is_pr:o.pr})})
+   :gsFetch('gym_session_sets?session_id=eq.'+encodeURIComponent(g.id)+'&user_id=eq.'+encodeURIComponent(uid)+'&client_key=eq.'+encodeURIComponent(o.key),{method:'DELETE'});
   req.then(function(r){
     gs.flushing=false;
     if(r.ok||(r.status>=400&&r.status<500&&r.status!==401&&r.status!==408&&r.status!==429)){
@@ -855,7 +858,7 @@ function gsBarInner(){
 function gsCardInner(){
   if(!GROUPS)return '';
   var h='';
-  if(!sbReady())return '<div class="card"><div class="row"><div class="sp"><b>Train with friends</b><div class="sm dim">Sign in under Settings to start group sessions with your Klander friends.</div></div><button class="btn ghost sm" data-act="settings">Settings</button></div></div>';
+  if(!gsReady())return '<div class="card"><div class="row"><div class="sp"><b>Train with friends</b><div class="sm dim">Sign in under Settings to start group sessions with your Klander friends.</div></div><button class="btn ghost sm" data-act="settings">Settings</button></div></div>';
   if(gs.missing)return '<div class="card"><b>Train with friends</b><div class="sm dim" style="margin-top:4px">Group sessions are not switched on for this account yet.</div></div>';
   var inv=gs.list.filter(function(l){return l.my_status==='invited'&&l.status==='open'}),
       live=gs.list.filter(function(l){return l.my_status==='joined'&&l.status==='open'}),
@@ -881,8 +884,12 @@ function gsCardInner(){
 /* settings */
 function gsSettingsInner(){
   var h='<h3>Train together</h3>';
-  if(!sbReady())return h+'<p class="sm dim" style="margin:6px 0 0">Sign in with your account (below) to train with your Klander friends.</p>';
+  if(!gsReady()){
+    if(HUBMODE)return h+'<p class="sm dim" style="margin:6px 0 10px">Group sessions use your Klander account (the same login as Klander and Gymnify). Sign in here. It is separate from your Hub sign-in and only used for groups.</p><div style="display:grid;gap:8px"><input id="gs-email" type="email" autocomplete="username" inputmode="email" autocapitalize="off" placeholder="Klander email"><input id="gs-pass" type="password" autocomplete="current-password" placeholder="Password"></div><div class="row" style="margin-top:10px"><button class="btn sm" data-act="gssignin">Sign in</button></div><div class="sm dim" id="gs-msg" style="margin-top:8px"></div>';
+    return h+'<p class="sm dim" style="margin:6px 0 0">Sign in with your account (below) to train with your Klander friends.</p>';
+  }
   if(gs.missing)return h+'<p class="sm dim" style="margin:6px 0 0">Group sessions are not switched on for this account yet.</p>';
+  if(HUBMODE){var ga=authGet();h+='<p class="sm dim" style="margin:6px 0 0">Signed in to Klander as <b>'+esc((ga&&ga.email)||'your account')+'</b>. <a href="#" data-act="gssignout" style="color:var(--accent)">Sign out</a></p>'}
   h+='<label class="row sm" style="gap:8px;margin-top:10px"><input type="checkbox" data-act="gsopt" '+(gs.optin?'checked':'')+' style="width:auto"> Let my Klander friends invite me to group sessions</label>';
   h+='<p class="xs faint" style="margin:10px 0 0">Only friends you have accepted in Klander can see that you are here, and only they can invite you. Inside a session, everyone in it sees your name and your working sets (exercise, weight, reps). Never your body weight, measurements, photos or notes. Sessions delete themselves after 30 days. Turn this off any time.</p>';
   return h;
@@ -959,6 +966,15 @@ function gsSummarySheet(sid){
   });
 }
 
+function gsSignIn(){
+  var em=(($('#gs-email')||{}).value||'').trim(),pw=($('#gs-pass')||{}).value||'',msg=$('#gs-msg');if(!msg)return;
+  if(!em||pw.length<8){msg.textContent='Enter your Klander email and password';return}
+  msg.textContent='One moment…';
+  authCall('token?grant_type=password',{email:em,password:pw}).then(function(r){
+    if(r.ok&&r.j.access_token){var a=authFromResp(r.j);a.email=a.email||em;authSet(a);gs.missing=false;gs.loadedAt=0;render();gsLoad();return}
+    msg.textContent=(r.j&&(r.j.error_description||r.j.msg||r.j.message))||'That did not work, try again';
+  }).catch(function(){msg.textContent='No connection. Try again when you are online.'});
+}
 /* ---------- themes ---------- */
 var THEMES={
   gymnify:{n:'Gymnify',note:'Violet on navy',bg:'#0d0f1a',s:'#151829',s2:'#1d2138',b:'#2a2f4b',t:'#eef0fb',d:'#a4aac8',f:'#737aa5',a:'#8f84ff',a2:'#5fd0ff',g:'#5be3a1',c:'#ff8a9a'},
@@ -1876,6 +1892,8 @@ document.addEventListener('click',function(ev){
   case 'delphotos':Promise.all(ui.sel.map(dbDel)).then(function(){ui.sel=[];closeSheet();render()});break;
   /* group sessions */
   case 'gsstart':gsStartSheet();break;
+  case 'gssignin':gsSignIn();break;
+  case 'gssignout':ev.preventDefault();authSet(null);gs.list=[];gs.feed={};gs.optin=null;gs.loadedAt=0;render();break;
   case 'gsfr':el.classList.toggle('on');break;
   case 'gscreate':gsCreate(el);break;
   case 'gsjoin':gsJoin(el.dataset.sid);break;
@@ -1888,8 +1906,8 @@ document.addEventListener('click',function(ev){
   case 'gsleave':{var lg=S.active&&S.active.gs;closeSheet();if(lg){gsFlush(lg,function(){gsLeave(lg.id)});delete S.active.gs;save();ui.keepScroll=true;render();toast('You left the group. Your workout carries on.',3000)}break}
   case 'gsend':{var eg=gsActiveId();closeSheet();if(eg)gsRpc('gym_end',{sid:eg}).then(function(){toast('Session ended for everyone');gsLoad()},function(e){toast(e&&e.message?e.message:'Could not end it',3000)});break}
   case 'gshi5':{var to=el.dataset.to,gk=gsActiveId();if(!gk||(gs.hiAt[to]&&Date.now()-gs.hiAt[to]<3000))break;gs.hiAt[to]=Date.now();
-    sbFetch('gym_session_hi5',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({session_id:gk,to_user:to})}).then(function(r){if(r.ok){toast('High-five sent',1500);gsLoad()}else toast('Could not send that',2000)},function(){toast('Offline',1500)});break}
-  case 'gsopt':{var want=el.checked;sbFetch('gym_prefs?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:gsUid(),group_ok:want,updated_at:new Date().toISOString()})}).then(function(r){if(r.ok){gs.optin=want;toast(want?'Friends can invite you now':'Friends can no longer invite you',2500)}else{el.checked=!want;toast('Could not save that. Try again.',2500)}},function(){el.checked=!want;toast('Offline. Try again later.',2500)});break}
+    gsFetch('gym_session_hi5',{method:'POST',headers:{Prefer:'return=minimal'},body:JSON.stringify({session_id:gk,to_user:to})}).then(function(r){if(r.ok){toast('High-five sent',1500);gsLoad()}else toast('Could not send that',2000)},function(){toast('Offline',1500)});break}
+  case 'gsopt':{var want=el.checked;gsFetch('gym_prefs?on_conflict=user_id',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:gsUid(),group_ok:want,updated_at:new Date().toISOString()})}).then(function(r){if(r.ok){gs.optin=want;toast(want?'Friends can invite you now':'Friends can no longer invite you',2500)}else{el.checked=!want;toast('Could not save that. Try again.',2500)}},function(){el.checked=!want;toast('Offline. Try again later.',2500)});break}
   /* settings */
   case 'kit':{var kk=el.dataset.w==='Home'?S.settings.kitHome:S.settings.kitGym;kk[el.dataset.q]=!kk[el.dataset.q];save();render();break}
   case 'syncnow':sync.state='local';pull(function(){push()});break;
